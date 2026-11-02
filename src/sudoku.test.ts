@@ -25,7 +25,7 @@ test('100 generated solutions satisfy every Sudoku unit and all 108 jig comparis
         assert.equal(symbol, grid[row][col] < grid[row][col + 1] ? '<' : '>');
       } else {
         assert.notEqual(row % 3, 2);
-        assert.equal(symbol, grid[row][col] < grid[row + 1][col] ? '^' : 'v');
+        assert.equal(symbol, grid[row][col] < grid[row + 1][col] ? '∧' : 'v');
       }
     }
     assert.deepEqual(counts, Array(9).fill(12));
@@ -39,6 +39,6 @@ test('the supplied example points upward from 8 toward 7 and rightward from 8 to
   grid[2][0] = 8;
   grid[2][1] = 9;
   const jigs = createJigs(grid);
-  assert.equal(jigs.find(j => j.row === 1 && j.col === 0 && j.direction === 'vertical')?.symbol, '^');
+  assert.equal(jigs.find(j => j.row === 1 && j.col === 0 && j.direction === 'vertical')?.symbol, '∧');
   assert.equal(jigs.find(j => j.row === 2 && j.col === 0 && j.direction === 'horizontal')?.symbol, '<');
 });

@@ -26,7 +26,7 @@ The production output is in `dist/`. Vite uses the `/GreaterThanSudoku/` base pa
 
 - Characters 1–72: horizontal adjacencies, left to right within each row, rows 1–9.
 - Characters 73–144: vertical adjacencies, top to bottom within each column, columns 1–9.
-- `<` and `>` compare left/right cells; `^` and `v` point toward the smaller top/bottom cell.
+- `<` and `>` compare left/right cells; `∧` and `v` point toward the smaller top/bottom cell.
 - `0` represents an absent jig. Generated layouts have 108 jigs and 36 zeros at box boundaries.
 
 The text field remains available for manual copying if clipboard access is denied.

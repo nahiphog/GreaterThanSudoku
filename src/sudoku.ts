@@ -1,5 +1,5 @@
 export type Grid = number[][];
-export type Jig = { row: number; col: number; direction: 'horizontal' | 'vertical'; symbol: '<' | '>' | '^' | 'v' };
+export type Jig = { row: number; col: number; direction: 'horizontal' | 'vertical'; symbol: '<' | '>' | '∧' | 'v' };
 
 function shuffle<T>(values: T[]): T[] {
   const result = [...values];
@@ -46,7 +46,7 @@ export function createJigs(grid: Grid): Jig[] {
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
       if (col % 3 !== 2) jigs.push({ row, col, direction: 'horizontal', symbol: grid[row][col] < grid[row][col + 1] ? '<' : '>' });
-      if (row % 3 !== 2) jigs.push({ row, col, direction: 'vertical', symbol: grid[row][col] < grid[row + 1][col] ? '^' : 'v' });
+      if (row % 3 !== 2) jigs.push({ row, col, direction: 'vertical', symbol: grid[row][col] < grid[row + 1][col] ? '∧' : 'v' });
     }
   }
   return jigs;
