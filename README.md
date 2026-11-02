@@ -29,7 +29,9 @@ The production output is in `dist/`. Vite uses the `/GreaterThanSudoku/` base pa
 - `<` and `>` compare left/right cells; `∧` and `v` point toward the smaller top/bottom cell.
 - `0` represents an absent jig. Generated layouts have 108 jigs and 36 zeros at box boundaries.
 
-The text field remains available for manual copying if clipboard access is denied.
+Copy buttons sit directly below each grid. The jig string is not displayed; the completed Sudoku copies 81 digits in row order, from R1C1 through R9C9. A legacy clipboard fallback is attempted if the Clipboard API is unavailable.
+
+Click any cell in the completed jig puzzle to highlight it and show its coordinates, for example `Selected cell: R5C7`. Cells also support keyboard focus and Enter/Space activation. Generating a new puzzle clears the selection.
 
 ## GitHub Pages
 
