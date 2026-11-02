@@ -22,6 +22,7 @@ document.querySelector('#solution')!.insertAdjacentHTML('afterend', '<button id=
 document.querySelector('#jigs')!.setAttribute('role', 'group');
 document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show Snyder notations</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
+document.querySelector('#selected-cell')!.insertAdjacentHTML('afterend', '<button id="check-uniqueness" class="copy-button" type="button">Check uniqueness</button><p id="uniqueness-status" class="selection-status" role="status" aria-live="polite"></p>');
 
 function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
   element.replaceChildren();
@@ -64,6 +65,36 @@ let showNotes = false;
 let candidates: number[][] = [];
 let notesWorker: Worker | undefined;
 let notesError = '';
+let currentJigs: Jig[] = [];
+let uniquenessWorker: Worker | undefined;
+
+function startUniquenessCheck() {
+  uniquenessWorker?.terminate();
+  const worker = new Worker(new URL('./uniqueness.worker.ts', import.meta.url), { type: 'module' });
+  uniquenessWorker = worker;
+  document.querySelector('#check-uniqueness')!.textContent = 'Cancel uniqueness check';
+  document.querySelector('#uniqueness-status')!.textContent = 'Checking with backtracking only… Snyder notes are ignored.';
+  const finish = (message: string) => {
+    if (uniquenessWorker !== worker) return;
+    worker.terminate();
+    uniquenessWorker = undefined;
+    document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
+    document.querySelector('#uniqueness-status')!.textContent = message;
+  };
+  worker.onmessage = (event: MessageEvent<{ count?: number; error?: string }>) => {
+    finish(event.data.error ?? (event.data.count === 0 ? 'No solution.' : event.data.count === 1 ? 'Unique solution — exactly one valid completion.' : 'Not unique — at least two valid completions.'));
+  };
+  worker.onerror = () => finish('The uniqueness check failed. Please try again.');
+  worker.postMessage(currentJigs);
+}
+document.querySelector('#check-uniqueness')!.addEventListener('click', () => {
+  if (uniquenessWorker) {
+    uniquenessWorker.terminate();
+    uniquenessWorker = undefined;
+    document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
+    document.querySelector('#uniqueness-status')!.textContent = 'Check cancelled — uniqueness is undetermined.';
+  } else startUniquenessCheck();
+});
 
 function updateNotes() {
   document.querySelectorAll<HTMLButtonElement>('#jigs .cell').forEach((cell, index) => {
@@ -94,6 +125,8 @@ document.querySelector('#toggle-notes')!.addEventListener('click', () => {
 function generate() {
   const grid = generateSolution();
   const jigs = createJigs(grid);
+  currentJigs = jigs;
+  startUniquenessCheck();
   renderBoard(document.querySelector('#solution')!, grid);
   renderBoard(document.querySelector('#jigs')!, grid, jigs);
   candidates = [];

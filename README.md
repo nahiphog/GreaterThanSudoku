@@ -39,7 +39,13 @@ Click any cell in the completed jig puzzle to highlight it and show its coordina
 
 These are full candidate notes (not restricted to two-location box marks). Full-puzzle checking may narrow a cell further than a local jig argument: in the supplied example R2C3 is 3. Copying still exports only the jig string, and selection works with notes shown or hidden.
 
-## GitHub Pages
+## Uniqueness check
+
+Each generated jig puzzle is independently checked in a background worker using backtracking from 81 empty cells. The checker receives only the jigs: it does not use Snyder notes, the displayed solution, candidate propagation, or imported human techniques. At each branch it tries digits allowed by assigned row, column, box, and adjacent inequality values, choosing the empty cell with the fewest legal trials.
+
+The check exhausts the search before reporting zero or one solution, and stops after two solutions to report **Not unique — at least two valid completions**. **Cancel uniqueness check** leaves the result undetermined; **Check uniqueness** restarts it. Generating another puzzle cancels the previous worker and discards stale results. Pure backtracking may take longer on difficult puzzles.
+
+## GitHub Pages deployment
 
 `.github/workflows/deploy.yml` installs locked dependencies with `npm ci`, runs tests and the TypeScript/production build, then publishes `dist/` using the official GitHub Pages actions. Pushes to `main` deploy automatically; manual runs are also supported. Set the repository's Pages source to **GitHub Actions**. YAML is the workflow format, not a runtime dependency.
 
