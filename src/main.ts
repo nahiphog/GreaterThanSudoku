@@ -20,6 +20,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 
 document.querySelector('#solution')!.insertAdjacentHTML('afterend', '<button id="copy-solution" class="copy-button" type="button">Copy 81-character string</button><p id="solution-copy-status" class="copy-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.setAttribute('role', 'group');
+document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show Snyder notations</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
 
 function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
@@ -59,11 +60,62 @@ function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
 let generation = 0;
 let puzzleString = '';
 let solutionString = '';
+let showNotes = false;
+let candidates: number[][] = [];
+let notesWorker: Worker | undefined;
+let notesError = '';
+
+function updateNotes() {
+  document.querySelectorAll<HTMLButtonElement>('#jigs .cell').forEach((cell, index) => {
+    cell.replaceChildren();
+    const coordinate = `R${Math.floor(index / 9) + 1}C${index % 9 + 1}`;
+    cell.setAttribute('aria-label', showNotes && candidates.length ? `${coordinate}, candidates: ${candidates[index].join(', ')}` : coordinate);
+    if (!showNotes || !candidates.length) return;
+    const notes = document.createElement('span');
+    notes.className = 'candidate-notes';
+    notes.setAttribute('aria-hidden', 'true');
+    for (let digit = 1; digit <= 9; digit++) {
+      const mark = document.createElement('span');
+      mark.textContent = candidates[index].includes(digit) ? String(digit) : '';
+      notes.append(mark);
+    }
+    cell.append(notes);
+  });
+  const toggle = document.querySelector('#toggle-notes')!;
+  toggle.textContent = showNotes ? 'Hide Snyder notations' : 'Show Snyder notations';
+  toggle.setAttribute('aria-pressed', String(showNotes));
+  document.querySelector('#notes-status')!.textContent = !showNotes ? '' : notesError || (candidates.length ? 'Each note can occur in a valid solution of this jig puzzle.' : 'Calculating plausible notes…');
+}
+document.querySelector('#toggle-notes')!.addEventListener('click', () => {
+  showNotes = !showNotes;
+  updateNotes();
+});
+
 function generate() {
   const grid = generateSolution();
   const jigs = createJigs(grid);
   renderBoard(document.querySelector('#solution')!, grid);
   renderBoard(document.querySelector('#jigs')!, grid, jigs);
+  candidates = [];
+  notesError = '';
+  notesWorker?.terminate();
+  const worker = new Worker(new URL('./candidates.worker.ts', import.meta.url), { type: 'module' });
+  notesWorker = worker;
+  worker.onmessage = (event: MessageEvent<{ candidates?: number[][]; error?: string }>) => {
+    if (notesWorker !== worker) return;
+    candidates = event.data.candidates ?? [];
+    notesError = event.data.error ?? '';
+    worker.terminate();
+    updateNotes();
+  };
+  worker.onerror = () => {
+    if (notesWorker !== worker) return;
+    notesError = 'Unable to calculate notes. Please generate a new puzzle and try again.';
+    worker.terminate();
+    updateNotes();
+  };
+  worker.postMessage(jigs);
+  updateNotes();
   puzzleString = encodeCompactPuzzle(jigs);
   solutionString = grid.flat().join('');
   document.querySelector('#jig-copy-status')!.textContent = '';
