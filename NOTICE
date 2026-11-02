@@ -1,0 +1,15 @@
+Greater than Sudoku is distributed under GPL-3.0; see LICENSE.
+
+src/vendor/sudokui/ contains an unmodified copy of src/engine/ from
+AImenes/sudokUI, https://github.com/AImenes/sudokUI
+Revision: e9ce0ae9741e40b9b1caf0d9f6b801524c2e01aa
+Imported: 2026-11-02
+License: GPL-3.0 (included at the project root and in the vendor directory).
+Original source comments and authorship are retained.
+
+The engine's technique semantics and rating model credit HoDoKu by
+Bernhard Hobiger; newer strategies also follow sudokuwiki.org definitions.
+
+The compact edge ordering matches nahiphog/EitherOrSudoku's lib/compact.ts:
+https://github.com/nahiphog/EitherOrSudoku/blob/main/lib/compact.ts
+Our serializer stores inequality symbols instead of the sister app's digits.
