@@ -76,7 +76,7 @@ function startUniquenessCheck() {
   const worker = new Worker(new URL('./uniqueness.worker.ts', import.meta.url), { type: 'module' });
   uniquenessWorker = worker;
   document.querySelector('#check-uniqueness')!.textContent = 'Cancel uniqueness check';
-  document.querySelector('#uniqueness-status')!.textContent = 'Checking with backtracking only… Local notes are ignored.';
+  document.querySelector('#uniqueness-status')!.textContent = 'Checking with local jig notes and sudokUI logical techniques…';
   const finish = (message: string) => {
     if (uniquenessWorker !== worker) return;
     worker.terminate();
@@ -84,8 +84,14 @@ function startUniquenessCheck() {
     document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
     document.querySelector('#uniqueness-status')!.textContent = message;
   };
-  worker.onmessage = (event: MessageEvent<{ count?: number; error?: string }>) => {
-    finish(event.data.error ?? (event.data.count === 0 ? 'No solution.' : event.data.count === 1 ? 'Unique solution — exactly one valid completion.' : 'Not unique — at least two valid completions.'));
+  worker.onmessage = (event: MessageEvent<{ count?: number; error?: string; progress?: string; logicSteps?: number; usedBacktracking?: boolean }>) => {
+    if (uniquenessWorker !== worker) return;
+    if (event.data.progress) {
+      document.querySelector('#uniqueness-status')!.textContent = event.data.progress;
+      return;
+    }
+    const method = event.data.usedBacktracking ? `${event.data.logicSteps} logical steps, then backtracking on the remaining possibilities.` : `${event.data.logicSteps} logical steps; no backtracking needed.`;
+    finish(event.data.error ?? ((event.data.count === 0 ? 'No solution.' : event.data.count === 1 ? 'Unique solution — exactly one valid completion.' : 'Not unique — at least two valid completions.') + ' ' + method));
   };
   worker.onerror = () => finish('The uniqueness check failed. Please try again.');
   worker.postMessage(currentJigs);

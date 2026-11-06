@@ -49,9 +49,9 @@ Only when no enabled logical technique or jig deduction can progress does backtr
 
 ## Independent uniqueness check
 
-Each generated jig puzzle is independently checked in a background worker using backtracking from 81 empty cells. The checker receives only the jigs: it does not use Snyder notes, the displayed solution, candidate propagation, or imported human techniques. At each branch it tries digits allowed by assigned row, column, box, and adjacent inequality values, choosing the empty cell with the fewest legal trials.
+Each generated jig puzzle is checked in its own background worker, starting with local jig notes and the same imported sudokUI techniques as the step-by-step solver. It receives only the jigs and computes its own notes; it never reads the displayed solution. Classic uniqueness techniques are excluded because the checker must not assume the result it is trying to prove. If logical deductions fill the grid, they establish a unique completion without backtracking.
 
-The check exhausts the search before reporting zero or one solution, and stops after two solutions to report **Not unique — at least two valid completions**. **Cancel uniqueness check** leaves the result undetermined; **Check uniqueness** restarts it. Generating another puzzle cancels the previous worker and discards stale results. Pure backtracking may take longer on difficult puzzles.
+Only if logic stalls does backtracking explore the remaining possibilities, retaining every logical placement and candidate elimination. It exhausts that search before reporting zero or one solution, and stops after two solutions to report **Not unique — at least two valid completions**. The status shows the logical step count and whether search was needed. **Cancel uniqueness check** leaves the result undetermined; **Check uniqueness** restarts it. Generating another puzzle cancels the previous worker and discards stale results.
 
 ## GitHub Pages deployment
 
@@ -61,7 +61,7 @@ The check exhausts the search before reporting zero or one solution, and stops a
 
 The complete upstream TypeScript engine is vendored in `src/vendor/sudokui/` at revision `e9ce0ae9741e40b9b1caf0d9f6b801524c2e01aa`. `src/techniques.ts` exposes its board model, technique catalog, step finders, and step application. It includes singles, intersections, subsets, fish, wings, chains, coloring, ALS, forcing, uniqueness techniques, and the other upstream technique modules.
 
-The imported solver entry point is type-checked during the build and exercised by the step-by-step solver tests. The classic engine runs in a dedicated worker with additional jig deductions and excludes classic uniqueness techniques. Local notes use inequality bounds; uniqueness uses a separate backtracking worker.
+The imported solver entry point is type-checked during the build and exercised by the step-by-step solver tests. The classic engine runs in dedicated workers with additional jig deductions and excludes classic uniqueness techniques. Local notes use inequality bounds; the separate uniqueness worker applies logic before last-resort search.
 
 ## License
 

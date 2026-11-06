@@ -1,15 +1,37 @@
 import type { Jig } from './sudoku';
+import { solveWithSteps, type SolveFrame } from './logical-solver';
 
-export type UniquenessResult = { count: 0 | 1 | 2; solutions: number[][] };
+export type UniquenessResult = { count: 0 | 1 | 2; solutions: number[][]; logicSteps: number; usedBacktracking: boolean };
 
-/** Independent backtracking from 81 empty cells. No notes, solution, or logical
- * technique inputs. Two witnesses suffice to prove non-uniqueness.
+/** Apply solution-preserving deductions first, then exhaust the remaining
+ * possibilities (or stop at two witnesses). Never assume uniqueness.
  */
-export function checkUniqueness(jigs: Jig[]): UniquenessResult {
-  const values = Array<number>(81).fill(0);
+export function checkUniqueness(jigs: Jig[], progress: (message: string) => void = () => {}): UniquenessResult {
+  let frame: SolveFrame | undefined;
+  let logicSteps = 0;
+  try {
+    const result = solveWithSteps(jigs, next => { frame = next; }, progress, false);
+    logicSteps = result.logicSteps;
+  } catch (error) {
+    if (error instanceof Error && ['The jigs contain a contradictory cycle.', 'The local notes contradict the puzzle rules.'].includes(error.message)) {
+      return { count: 0, solutions: [], logicSteps, usedBacktracking: false };
+    }
+    throw error;
+  }
+  if (!frame) throw new Error('No logical state was produced.');
+  const values = [...frame.values];
+  if (values.every(Boolean)) return { count: 1, solutions: [values], logicSteps, usedBacktracking: false };
+  const candidates = frame.candidates;
+  progress(`After ${logicSteps} logical steps, deductions stalled. Searching remaining possibilities to determine uniqueness…`);
   const rows = Array<number>(9).fill(0);
   const cols = Array<number>(9).fill(0);
   const boxes = Array<number>(9).fill(0);
+  values.forEach((digit, cell) => {
+    if (!digit) return;
+    const row = Math.floor(cell / 9), col = cell % 9;
+    rows[row] |= 1 << digit; cols[col] |= 1 << digit;
+    boxes[Math.floor(row / 3) * 3 + Math.floor(col / 3)] |= 1 << digit;
+  });
   const neighbors: { cell: number; smaller: boolean }[][] = Array.from({ length: 81 }, () => []);
   for (const jig of jigs) {
     const a = jig.row * 9 + jig.col;
@@ -22,14 +44,13 @@ export function checkUniqueness(jigs: Jig[]): UniquenessResult {
   function visit(): void {
     let chosen = -1;
     let options: number[] = [];
-    // Choose the empty cell with fewest currently legal trials. These are
-    // recomputed directly from assigned values, never from Snyder notes.
+    // Keep every logical elimination and placement when searching the remainder.
     for (let cell = 0; cell < 81; cell++) {
       if (values[cell]) continue;
       const row = Math.floor(cell / 9), col = cell % 9;
       const used = rows[row] | cols[col] | boxes[Math.floor(row / 3) * 3 + Math.floor(col / 3)];
       const legal: number[] = [];
-      for (let digit = 1; digit <= 9; digit++) {
+      for (const digit of candidates[cell]) {
         if (used & (1 << digit)) continue;
         if (neighbors[cell].some(edge => values[edge.cell] && (edge.smaller ? digit >= values[edge.cell] : digit <= values[edge.cell]))) continue;
         legal.push(digit);
@@ -51,5 +72,5 @@ export function checkUniqueness(jigs: Jig[]): UniquenessResult {
     }
   }
   visit();
-  return { count: solutions.length as 0 | 1 | 2, solutions };
+  return { count: solutions.length as 0 | 1 | 2, solutions, logicSteps, usedBacktracking: true };
 }

@@ -13,7 +13,7 @@ export type SolveFrame = {
 export const LOGIC_ORDER = SOLVE_ORDER.filter(t => TECHS[t].category !== 'Uniqueness' && t !== 'BRUTE_FORCE');
 const name = (cell: number) => `R${Math.floor(cell / 9) + 1}C${cell % 9 + 1}`;
 
-export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, progress: (message: string) => void = () => {}) {
+export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, progress: (message: string) => void = () => {}, allowBacktracking = true) {
   const state = emptyGrid();
   jigCandidates(jigs).forEach((notes, i) => { state.cands[i] = notes.reduce((mask, d) => mask | bit(d), 0); });
   const edges = jigs.map(j => {
@@ -61,6 +61,8 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
   record('Local jig notes', 'Start with an empty grid and candidates from local jig deductions only.', 'initial');
   let logicSteps = 0;
   while (state.values.some(v => !v)) {
+    // With no givens or jigs, digit symmetry precludes any forced deduction.
+    if (!jigs.length) break;
     const before = cloneGrid(state);
     const jig = jigStep(state);
     if (jig) {
@@ -80,6 +82,7 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
     if (logicSteps > 810) throw new Error('Logical step limit exceeded.');
   }
   if (!state.values.some(v => !v)) return { usedBacktracking: false, logicSteps };
+  if (!allowBacktracking) return { usedBacktracking: false, logicSteps };
   progress('Logical techniques stalled. Trying backtracking as a last resort…');
   // Search begins only after all applicable imported techniques have stalled.
   function search(g: Grid): Grid | null {
