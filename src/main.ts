@@ -1,4 +1,5 @@
 import './style.css';
+import { createSolverView } from './solver-view';
 import { encodeCompactPuzzle } from './compact';
 import { createJigs, generateSolution, type Grid, type Jig } from './sudoku';
 
@@ -23,6 +24,8 @@ document.querySelector('#jigs')!.setAttribute('role', 'group');
 document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show local jig notes</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
 document.querySelector('#selected-cell')!.insertAdjacentHTML('afterend', '<button id="check-uniqueness" class="copy-button" type="button">Check uniqueness</button><p id="uniqueness-status" class="selection-status" role="status" aria-live="polite"></p>');
+
+const solverView = createSolverView();
 
 function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
   element.replaceChildren();
@@ -126,6 +129,7 @@ function generate() {
   const grid = generateSolution();
   const jigs = createJigs(grid);
   currentJigs = jigs;
+  solverView.reset(jigs);
   startUniquenessCheck();
   renderBoard(document.querySelector('#solution')!, grid);
   renderBoard(document.querySelector('#jigs')!, grid, jigs);

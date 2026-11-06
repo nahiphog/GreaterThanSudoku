@@ -9,5 +9,5 @@
     "allowImportingTsExtensions": true,
     "skipLibCheck": true
   },
-  "include": ["src/main.ts", "src/sudoku.ts", "src/techniques.ts", "src/candidates.worker.ts", "src/uniqueness.worker.ts", "vite.config.ts"]
+  "include": ["src/main.ts", "src/sudoku.ts", "src/techniques.ts", "src/candidates.worker.ts", "src/uniqueness.worker.ts", "src/logical-solver.worker.ts", "vite.config.ts"]
 }

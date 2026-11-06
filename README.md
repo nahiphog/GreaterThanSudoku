@@ -39,7 +39,15 @@ Click any cell in the completed jig puzzle to highlight it and show its coordina
 
 These are local candidate bounds, not conventional two-location Snyder marks. A displayed digit is not guaranteed to extend to a full solution. In the supplied example R2C3 retains 1, 2, 3, 4 under local jig deductions, even though full-puzzle search narrows it to 3. Copying still exports only the jig string, and selection works with notes shown or hidden.
 
-## Uniqueness check
+## Step-by-step solving
+
+**Solve step by step** starts a separate solving view from the empty jig grid and local notes. Use **Next**, **Previous**, or the step selector to inspect each state. Each step names its technique, explains the deduction, lists placements and candidate removals (including peer removals), and highlights changed cells on the grid after the step. The original jig grid, local notes, and export remain available separately.
+
+The solver alternates jig inequality deductions with the enabled imported sudokUI techniques in their normal order: singles, intersections, subsets, fish, wings, chains, coloring, ALS, and the other enabled logical finders. Classic uniqueness techniques are excluded: a classic digit-swap argument need not preserve variant jigs. The engine receives only jigs and initial local notes, never the displayed solution or uniqueness result.
+
+Only when no enabled logical technique or jig deduction can progress does backtracking search for one completion. Its final frame is explicitly labelled **Backtracking completion — last resort**; it is not presented as a logical proof or uniqueness claim. **Stop solving** cancels computation while preserving the trace already found. A new generated puzzle resets the trace and cancels stale work. All solving runs in its own worker.
+
+## Independent uniqueness check
 
 Each generated jig puzzle is independently checked in a background worker using backtracking from 81 empty cells. The checker receives only the jigs: it does not use Snyder notes, the displayed solution, candidate propagation, or imported human techniques. At each branch it tries digits allowed by assigned row, column, box, and adjacent inequality values, choosing the empty cell with the fewest legal trials.
 
@@ -53,7 +61,7 @@ The check exhausts the search before reporting zero or one solution, and stops a
 
 The complete upstream TypeScript engine is vendored in `src/vendor/sudokui/` at revision `e9ce0ae9741e40b9b1caf0d9f6b801524c2e01aa`. `src/techniques.ts` exposes its board model, technique catalog, step finders, and step application. It includes singles, intersections, subsets, fish, wings, chains, coloring, ALS, forcing, uniqueness techniques, and the other upstream technique modules.
 
-The imported solver entry point is type-checked during the build and smoke-tested. The engine is not loaded into the generator page yet. It implements classic Sudoku. Local notes use inequality bounds; uniqueness uses an independent backtracking worker. Integrating the imported human techniques and interactive solving await the next phase. Techniques that assume uniqueness must not be used until the relevant uniqueness assumption is established.
+The imported solver entry point is type-checked during the build and exercised by the step-by-step solver tests. The classic engine runs in a dedicated worker with additional jig deductions and excludes classic uniqueness techniques. Local notes use inequality bounds; uniqueness uses a separate backtracking worker.
 
 ## License
 
