@@ -20,7 +20,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 
 document.querySelector('#solution')!.insertAdjacentHTML('afterend', '<button id="copy-solution" class="copy-button" type="button">Copy 81-character string</button><p id="solution-copy-status" class="copy-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.setAttribute('role', 'group');
-document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show Snyder notations</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
+document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show local jig notes</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
 document.querySelector('#selected-cell')!.insertAdjacentHTML('afterend', '<button id="check-uniqueness" class="copy-button" type="button">Check uniqueness</button><p id="uniqueness-status" class="selection-status" role="status" aria-live="polite"></p>');
 
@@ -73,7 +73,7 @@ function startUniquenessCheck() {
   const worker = new Worker(new URL('./uniqueness.worker.ts', import.meta.url), { type: 'module' });
   uniquenessWorker = worker;
   document.querySelector('#check-uniqueness')!.textContent = 'Cancel uniqueness check';
-  document.querySelector('#uniqueness-status')!.textContent = 'Checking with backtracking only… Snyder notes are ignored.';
+  document.querySelector('#uniqueness-status')!.textContent = 'Checking with backtracking only… Local notes are ignored.';
   const finish = (message: string) => {
     if (uniquenessWorker !== worker) return;
     worker.terminate();
@@ -113,9 +113,9 @@ function updateNotes() {
     cell.append(notes);
   });
   const toggle = document.querySelector('#toggle-notes')!;
-  toggle.textContent = showNotes ? 'Hide Snyder notations' : 'Show Snyder notations';
+  toggle.textContent = showNotes ? 'Hide local jig notes' : 'Show local jig notes';
   toggle.setAttribute('aria-pressed', String(showNotes));
-  document.querySelector('#notes-status')!.textContent = !showNotes ? '' : notesError || (candidates.length ? 'Each note can occur in a valid solution of this jig puzzle.' : 'Calculating plausible notes…');
+  document.querySelector('#notes-status')!.textContent = !showNotes ? '' : notesError || (candidates.length ? 'Notes use local jig comparisons only.' : 'Calculating local jig notes…');
 }
 document.querySelector('#toggle-notes')!.addEventListener('click', () => {
   showNotes = !showNotes;

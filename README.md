@@ -35,9 +35,9 @@ Click any cell in the completed jig puzzle to highlight it and show its coordina
 
 ## Candidate notes
 
-**Show Snyder notations** / **Hide Snyder notations** toggles small candidate digits in all 81 jig cells. The setting persists when generating a new puzzle. Notes are computed from the jigs, never from the displayed solution. Each shown digit has at least one complete Sudoku solution satisfying all comparisons. Inequality bounds and Sudoku propagation prune candidates, then a search checks each remaining possibility. A background worker keeps the page responsive and is cancelled when a new puzzle is generated.
+**Show local jig notes** / **Hide local jig notes** toggles small candidate digits in all 81 jig cells. The setting persists when generating a new puzzle. Notes use only the jig comparisons and their transitive chains. If a cell has S distinct cells known to be smaller and L distinct cells known to be larger in its box, its notes are S+1 through 9−L. Shared paths are counted once. Notes never use the displayed solution, full-solution search, or the uniqueness result. A separate background worker calculates them.
 
-These are full candidate notes (not restricted to two-location box marks). Full-puzzle checking may narrow a cell further than a local jig argument: in the supplied example R2C3 is 3. Copying still exports only the jig string, and selection works with notes shown or hidden.
+These are local candidate bounds, not conventional two-location Snyder marks. A displayed digit is not guaranteed to extend to a full solution. In the supplied example R2C3 retains 1, 2, 3, 4 under local jig deductions, even though full-puzzle search narrows it to 3. Copying still exports only the jig string, and selection works with notes shown or hidden.
 
 ## Uniqueness check
 
@@ -53,7 +53,7 @@ The check exhausts the search before reporting zero or one solution, and stops a
 
 The complete upstream TypeScript engine is vendored in `src/vendor/sudokui/` at revision `e9ce0ae9741e40b9b1caf0d9f6b801524c2e01aa`. `src/techniques.ts` exposes its board model, technique catalog, step finders, and step application. It includes singles, intersections, subsets, fish, wings, chains, coloring, ALS, forcing, uniqueness techniques, and the other upstream technique modules.
 
-The imported solver entry point is type-checked during the build and smoke-tested. The engine is not loaded into the generator page yet. It implements classic Sudoku. Candidate notes use a separate greater-than constraint search; integrating the imported human techniques, interactive solving, and explicit uniqueness checking await the next phase. Techniques that assume uniqueness must not be used until the relevant uniqueness assumption is established.
+The imported solver entry point is type-checked during the build and smoke-tested. The engine is not loaded into the generator page yet. It implements classic Sudoku. Local notes use inequality bounds; uniqueness uses an independent backtracking worker. Integrating the imported human techniques and interactive solving await the next phase. Techniques that assume uniqueness must not be used until the relevant uniqueness assumption is established.
 
 ## License
 
