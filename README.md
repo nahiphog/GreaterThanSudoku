@@ -51,6 +51,8 @@ Only when no enabled logical technique or jig deduction can progress does backtr
 
 ## Independent uniqueness check
 
+**Generate until unique** repeatedly generates fresh puzzles and runs the logic-first uniqueness checker until one is confirmed unique. The displayed puzzle is updated each attempt and the successful puzzle stays on screen. A live status shows attempts started and total elapsed time, including generation and all checks. **Stop searching** cancels the current check and preserves the final totals. **Generate** ends the search and creates a normal puzzle; a checker failure stops the search with its error instead of retrying indefinitely.
+
 Each generated jig puzzle is checked in its own background worker, starting with local jig notes and the same imported sudokUI techniques as the step-by-step solver. It receives only the jigs and computes its own notes; it never reads the displayed solution. Classic uniqueness techniques are excluded because the checker must not assume the result it is trying to prove. If logical deductions fill the grid, they establish a unique completion without backtracking.
 
 Only if logic stalls does backtracking explore the remaining possibilities, retaining every logical placement and candidate elimination. It exhausts that search before reporting zero or one solution, and stops after two solutions to report **Not unique — at least two valid completions**. The status shows the logical step count and whether search was needed. **Cancel uniqueness check** leaves the result undetermined; **Check uniqueness** restarts it. Generating another puzzle cancels the previous worker and discards stale results.

@@ -39,6 +39,7 @@ document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<button id="cop
 document.querySelector('#selected-cell')!.insertAdjacentHTML('afterend', '<button id="check-uniqueness" class="copy-button" type="button">Check uniqueness</button><p id="uniqueness-status" class="selection-status" role="status" aria-live="polite"></p>');
 
 const solverView = createSolverView();
+document.querySelector('.generate-area')!.insertAdjacentHTML('beforeend', '<button id="generate-unique" class="copy-button" type="button">Generate until unique</button><p id="unique-search-status" role="status" aria-live="polite"></p>');
 
 function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
   element.replaceChildren();
@@ -84,6 +85,39 @@ let notesError = '';
 let currentJigs: Jig[] = [];
 let uniquenessWorker: Worker | undefined;
 let cancelUniqueness: (() => void) | undefined;
+let uniqueSearch: { attempts: number; startedAt: number; timer: number } | undefined;
+
+function showSearchStatus(message: string) {
+  if (!uniqueSearch) return;
+  document.querySelector('#unique-search-status')!.textContent = `${message} Attempts: ${uniqueSearch.attempts}. Total elapsed time: ${((performance.now() - uniqueSearch.startedAt) / 1000).toFixed(3)} seconds.`;
+}
+
+function endUniqueSearch(message: string) {
+  if (!uniqueSearch) return;
+  showSearchStatus(message);
+  window.clearInterval(uniqueSearch.timer);
+  uniqueSearch = undefined;
+  document.querySelector('#generate-unique')!.textContent = 'Generate until unique';
+}
+
+function tryNextPuzzle() {
+  if (!uniqueSearch) return;
+  uniqueSearch.attempts++;
+  showSearchStatus('Searching…');
+  generate();
+}
+
+document.querySelector('#generate-unique')!.addEventListener('click', () => {
+  if (uniqueSearch) {
+    endUniqueSearch('Search stopped.');
+    cancelUniqueness?.();
+    return;
+  }
+  uniqueSearch = { attempts: 0, startedAt: performance.now(), timer: 0 };
+  uniqueSearch.timer = window.setInterval(() => showSearchStatus('Searching…'), 1000);
+  document.querySelector('#generate-unique')!.textContent = 'Stop searching';
+  tryNextPuzzle();
+});
 
 function startUniquenessCheck() {
   uniquenessWorker?.terminate();
@@ -92,13 +126,20 @@ function startUniquenessCheck() {
   uniquenessWorker = worker;
   document.querySelector('#check-uniqueness')!.textContent = 'Cancel uniqueness check';
   document.querySelector('#uniqueness-status')!.textContent = 'Checking with local jig notes and sudokUI logical techniques…';
-  const finish = (message: string) => {
+  const finish = (message: string, count?: number) => {
     if (uniquenessWorker !== worker) return;
     worker.terminate();
     uniquenessWorker = undefined;
     document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
     cancelUniqueness = undefined;
     document.querySelector('#uniqueness-status')!.textContent = `${message} Elapsed time: ${((performance.now() - startedAt) / 1000).toFixed(3)} seconds.`;
+    if (uniqueSearch) {
+      if (count === 1) endUniqueSearch('Unique puzzle found.');
+      else if (count === 0 || count === 2) {
+        const search = uniqueSearch;
+        window.setTimeout(() => { if (uniqueSearch === search) tryNextPuzzle(); }, 0);
+      } else endUniqueSearch('Search stopped before uniqueness could be determined.');
+    }
   };
   cancelUniqueness = () => finish('Check cancelled — uniqueness is undetermined.');
   worker.onmessage = (event: MessageEvent<{ count?: number; error?: string; progress?: string; logicSteps?: number; usedBacktracking?: boolean }>) => {
@@ -108,7 +149,7 @@ function startUniquenessCheck() {
       return;
     }
     const method = event.data.usedBacktracking ? `${event.data.logicSteps} logical steps, then backtracking on the remaining possibilities.` : `${event.data.logicSteps} logical steps; no backtracking needed.`;
-    finish(event.data.error ?? ((event.data.count === 0 ? 'No solution.' : event.data.count === 1 ? 'Unique solution — exactly one valid completion.' : 'Not unique — at least two valid completions.') + ' ' + method));
+    finish(event.data.error ?? ((event.data.count === 0 ? 'No solution.' : event.data.count === 1 ? 'Unique solution — exactly one valid completion.' : 'Not unique — at least two valid completions.') + ' ' + method), event.data.error ? undefined : event.data.count);
   };
   worker.onerror = () => finish('The uniqueness check failed. Please try again.');
   worker.postMessage(currentJigs);
@@ -181,7 +222,10 @@ function generate() {
   generation++;
   document.querySelector('#status')!.textContent = `Puzzle ${String(generation).padStart(2, '0')} · Generated together, connected by logic.`;
 }
-document.querySelector('#generate')!.addEventListener('click', generate);
+document.querySelector('#generate')!.addEventListener('click', () => {
+  endUniqueSearch('Search stopped to generate a new puzzle.');
+  generate();
+});
 async function copyString(value: string, statusId: string) {
   const copiedGeneration = generation;
   let copied = false;
