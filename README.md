@@ -35,6 +35,8 @@ Click any cell in the completed jig puzzle to highlight it and show its coordina
 
 ## Candidate notes
 
+The completed Sudoku starts hidden. **Show completed Sudoku** / **Hide completed Sudoku** expands or collapses the solution and its copy button; the selection persists while generating new puzzles.
+
 **Show local jig notes** / **Hide local jig notes** toggles small candidate digits in all 81 jig cells. The setting persists when generating a new puzzle. Notes use only the jig comparisons and their transitive chains. If a cell has S distinct cells known to be smaller and L distinct cells known to be larger in its box, its notes are S+1 through 9−L. Shared paths are counted once. Notes never use the displayed solution, full-solution search, or the uniqueness result. A separate background worker calculates them.
 
 These are local candidate bounds, not conventional two-location Snyder marks. A displayed digit is not guaranteed to extend to a full solution. In the supplied example R2C3 retains 1, 2, 3, 4 under local jig deductions, even though full-puzzle search narrows it to 3. Copying still exports only the jig string, and selection works with notes shown or hidden.
@@ -58,6 +60,8 @@ Only if logic stalls does backtracking explore the remaining possibilities, reta
 `.github/workflows/deploy.yml` installs locked dependencies with `npm ci`, runs tests and the TypeScript/production build, then publishes `dist/` using the official GitHub Pages actions. Pushes to `main` deploy automatically; manual runs are also supported. Set the repository's Pages source to **GitHub Actions**. YAML is the workflow format, not a runtime dependency.
 
 ## Imported solving techniques
+
+Uniqueness results include elapsed wall-clock time in seconds, measured from starting the check through receiving its output, including worker startup. Cancelled and failed checks also display elapsed time.
 
 The complete upstream TypeScript engine is vendored in `src/vendor/sudokui/` at revision `e9ce0ae9741e40b9b1caf0d9f6b801524c2e01aa`. `src/techniques.ts` exposes its board model, technique catalog, step finders, and step application. It includes singles, intersections, subsets, fish, wings, chains, coloring, ALS, forcing, uniqueness techniques, and the other upstream technique modules.
 

@@ -19,6 +19,19 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </main><footer><span>Greater than Sudoku</span><a href="https://github.com/nahiphog/GreaterThanSudoku">Source &amp; GPL-3.0 license</a></footer>
 `;
 
+const solutionBoard = document.querySelector<HTMLElement>('#solution')!;
+const solutionContent = document.createElement('div');
+solutionContent.id = 'solution-content';
+solutionContent.hidden = true;
+solutionBoard.before(solutionContent);
+solutionContent.append(solutionBoard, solutionBoard.nextElementSibling!);
+solutionContent.insertAdjacentHTML('beforebegin', '<button id="toggle-solution" class="notes-toggle" type="button" aria-expanded="false" aria-controls="solution-content">Show completed Sudoku</button>');
+document.querySelector('#toggle-solution')!.addEventListener('click', () => {
+  solutionContent.hidden = !solutionContent.hidden;
+  const toggle = document.querySelector('#toggle-solution')!;
+  toggle.setAttribute('aria-expanded', String(!solutionContent.hidden));
+  toggle.textContent = solutionContent.hidden ? 'Show completed Sudoku' : 'Hide completed Sudoku';
+});
 document.querySelector('#solution')!.insertAdjacentHTML('afterend', '<button id="copy-solution" class="copy-button" type="button">Copy 81-character string</button><p id="solution-copy-status" class="copy-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.setAttribute('role', 'group');
 document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show local jig notes</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
@@ -70,9 +83,11 @@ let notesWorker: Worker | undefined;
 let notesError = '';
 let currentJigs: Jig[] = [];
 let uniquenessWorker: Worker | undefined;
+let cancelUniqueness: (() => void) | undefined;
 
 function startUniquenessCheck() {
   uniquenessWorker?.terminate();
+  const startedAt = performance.now();
   const worker = new Worker(new URL('./uniqueness.worker.ts', import.meta.url), { type: 'module' });
   uniquenessWorker = worker;
   document.querySelector('#check-uniqueness')!.textContent = 'Cancel uniqueness check';
@@ -82,8 +97,10 @@ function startUniquenessCheck() {
     worker.terminate();
     uniquenessWorker = undefined;
     document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
-    document.querySelector('#uniqueness-status')!.textContent = message;
+    cancelUniqueness = undefined;
+    document.querySelector('#uniqueness-status')!.textContent = `${message} Elapsed time: ${((performance.now() - startedAt) / 1000).toFixed(3)} seconds.`;
   };
+  cancelUniqueness = () => finish('Check cancelled — uniqueness is undetermined.');
   worker.onmessage = (event: MessageEvent<{ count?: number; error?: string; progress?: string; logicSteps?: number; usedBacktracking?: boolean }>) => {
     if (uniquenessWorker !== worker) return;
     if (event.data.progress) {
@@ -98,10 +115,7 @@ function startUniquenessCheck() {
 }
 document.querySelector('#check-uniqueness')!.addEventListener('click', () => {
   if (uniquenessWorker) {
-    uniquenessWorker.terminate();
-    uniquenessWorker = undefined;
-    document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
-    document.querySelector('#uniqueness-status')!.textContent = 'Check cancelled — uniqueness is undetermined.';
+    cancelUniqueness?.();
   } else startUniquenessCheck();
 });
 
