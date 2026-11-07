@@ -1,10 +1,11 @@
 import type { Jig } from './sudoku';
 
-export function createBacktrackingCheck(section: HTMLElement, onResult: (count:number)=>void = () => {}) {
+export function createBacktrackingCheck(section: HTMLElement, onResult: (count:number)=>void = () => {}, prefix = '') {
   const container = document.createElement('div');
   container.className = 'backtracking-check';
   container.innerHTML = '<button type="button" id="check-backtracking">Check uniqueness — backtracking only</button><p id="backtracking-status" role="status" aria-live="polite">Independent check from an empty grid, without local notes or logical techniques.</p>';
-  section.querySelector('#solver-content')!.before(container);
+  container.querySelectorAll<HTMLElement>('[id]').forEach(el => {el.id = prefix + el.id;});
+  section.querySelector('[data-solver-content]')!.before(container);
   const button = container.querySelector<HTMLButtonElement>('button')!;
   const status = container.querySelector('p')!;
   let worker: Worker | undefined, startedAt = 0;

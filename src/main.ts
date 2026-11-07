@@ -1,4 +1,6 @@
 import './style.css';
+import { initVerify } from './verify';
+import { initNavigation, navigate, currentPage } from './navigation';
 import { renderRating } from './rating-view';
 import { initSimulation } from './simulation';
 import type { Tally } from './difficulty';
@@ -7,10 +9,10 @@ import { encodeCompactPuzzle } from './compact';
 import { createJigs, generateSolution, type Grid, type Jig } from './sudoku';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><nav aria-label="Main navigation"><a href="#home">Puzzle maker</a><a href="#simulation">Simulation difficulty</a><button id="about-open" type="button">About</button></nav></header>
+  <header class="site-header"><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><nav aria-label="Main navigation"><a href="/GreaterThanSudoku/generate/" data-page="generate">Generate</a><a href="/GreaterThanSudoku/simulation/" data-page="simulation">Simulation difficulty</a><a href="/GreaterThanSudoku/verify/" data-page="verify">Verify</a><button id="about-open" type="button">About</button></nav></header>
   <main id="home-page">
     <section class="intro">
-      <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label><p>A fresh grid. A new perspective.</p></div>
+      <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label></div>
     </section>
     <section class="puzzles" aria-label="Generated Sudoku puzzles">
       <article class="puzzle-card"><div class="card-heading"><div><p class="eyebrow">01 / THE STARTING POINT</p><h2>Completed Sudoku</h2></div><span class="badge">81 numbers</span></div><div id="solution" class="board" role="img"></div><p class="card-caption"><span class="caption-dot"></span>Every row, column, and box contains 1–9.</p></article>
@@ -28,12 +30,13 @@ solutionCard.classList.add('solution-card');
 document.querySelector('#home-page')!.append(solutionCard);
 initSimulation((grid, step) => {
   endUniqueSearch('Search stopped to open a simulation puzzle.');
-  location.hash = '#home';
+  navigate('generate');
   size = grid.length;
   document.querySelector<HTMLSelectElement>('#grid-type')!.value = String(size);
   displayPuzzle(grid);
   requestedStep = step;
 });
+initVerify();
 const solutionBoard = document.querySelector<HTMLElement>('#solution')!;
 const solutionContent = document.createElement('div');
 solutionContent.id = 'solution-content';
@@ -325,4 +328,7 @@ document.querySelector('#copy-puzzle')!.addEventListener('click', () => {
 document.querySelector('#copy-solution')!.addEventListener('click', () => {
   void copyString(solutionString, '#solution-copy-status');
 });
-startUniqueGeneration();
+window.addEventListener('pagechange', () => {
+  if (currentPage() === 'generate' && generation === 0) startUniqueGeneration();
+});
+initNavigation();

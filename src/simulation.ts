@@ -1,23 +1,10 @@
+import { decodeCompactPuzzle } from './compact';
+import { puzzleBoard } from './board-view';
+import { copyPuzzleText, copyPuzzleImage, puzzlePng } from './puzzle-image';
 import { readMatches } from './simulation-store';
 import { renderRating } from './rating-view';
 import type { Match } from './simulation.worker';
 
-function preview(string: string,size:number) {
-  const board=document.createElement('div');board.className='board';board.dataset.size=String(size);board.setAttribute('role','img');board.setAttribute('aria-label',`${size} by ${size} jig puzzle; full comparisons are in the adjacent puzzle string.`);
-  const width=size/3;
-  for(let r=0;r<size;r++) for(let c=0;c<size;c++) {
-    const cell=document.createElement('span');cell.className=`cell${c%width===width-1&&c<size-1?' box-right':''}${r%3===2&&r<size-1?' box-bottom':''}`;board.append(cell);
-  }
-  let index=0;
-  const mark=(r:number,c:number,vertical:boolean)=>{
-    const symbol=string[index++];if(symbol==='0')return;
-    const el=document.createElement('span');el.className=`jig ${vertical?'vertical':'horizontal'}`;el.textContent=symbol;
-    el.style.left=`${(c+(vertical?.5:1))/size*100}%`;el.style.top=`${(r+(vertical?1:.5))/size*100}%`;board.append(el);
-  };
-  for(let r=0;r<size;r++)for(let c=0;c<size-1;c++)mark(r,c,false);
-  for(let c=0;c<size;c++)for(let r=0;r<size-1;r++)mark(r,c,true);
-  return board;
-}
 export function initSimulation(onStep: (grid: number[][], step: number) => void) {
   const main=document.createElement('main');main.id='simulation-page';main.hidden=true;
   main.innerHTML=`<h1>Simulation difficulty</h1><p>Generate and rate random puzzles. Each trial is checked for uniqueness first. Only verified unique puzzles are rated; other trials are skipped. Ratings use the same solver and scoring as the puzzle maker.</p>
@@ -28,8 +15,6 @@ export function initSimulation(onStep: (grid: number[][], step: number) => void)
   <p>Jig strings use 144 characters for 9×9 and 60 for 6×6, with 0 for missing comparisons. Matching puzzles appear below, 10 per page, and are stored in this browser for the current run. Large simulations can take a long time; you can stop at any point.</p>
   <p id="simulation-status" role="status">Ready.</p><div class="simulation-controls"><button id="simulation-prev">Previous matches</button><span id="simulation-page-count"></span><button id="simulation-next">Next matches</button></div><div id="simulation-results"></div>`;
   document.querySelector('footer')!.before(main);
-  const route=()=>{const simulation=location.hash==='#simulation';main.hidden=!simulation;document.querySelector<HTMLElement>('#home-page')!.hidden=simulation;document.title=simulation?'Simulation difficulty — Greater than Sudoku':'Greater than Sudoku';};
-  window.addEventListener('hashchange',route);route();
   const get=<T extends HTMLElement>(id:string)=>main.querySelector<T>('#'+id)!;
   const form=get<HTMLFormElement>('simulation-form');
   let worker:Worker|undefined,timer=0,started=0,elapsed=0,completed=0,unique=0,skipped=0,total=0,sum=0,min=0,max=0,size=9,page=0;
@@ -48,9 +33,18 @@ export function initSimulation(onStep: (grid: number[][], step: number) => void)
     if(requestId!==renderId)return;
     for(const match of visible) {
       const card=document.createElement('article');card.className='simulation-card';
-      const heading=document.createElement('h2');heading.textContent=`Trial ${match.trial} · Rating ${match.score.toLocaleString()}`;card.append(heading,preview(match.string,size));
-      const label=document.createElement('label');label.textContent=`${match.string.length}-character puzzle string`;
-      const text=document.createElement('textarea');text.readOnly=true;text.value=match.string;text.rows=3;label.append(text);card.append(label);
+      const heading=document.createElement('h2');heading.textContent=`Trial ${match.trial} · Rating ${match.score.toLocaleString()}`;card.append(heading,puzzleBoard(decodeCompactPuzzle(match.string).jigs,size));
+      const timing=document.createElement('p');timing.textContent='Elapsed time for this puzzle: '+(match.elapsedMs/1000).toFixed(3)+' seconds (generation, uniqueness check and rating).';card.append(timing);
+      const actions=document.createElement('div');actions.className='simulation-card-actions';
+      const copyString=document.createElement('button');copyString.type='button';copyString.textContent='Copy puzzle string';
+      const copyImage=document.createElement('button');copyImage.type='button';copyImage.textContent='Copy grid as image';
+      const feedback=document.createElement('p');feedback.className='copy-status';feedback.setAttribute('role','status');
+      copyString.addEventListener('click',async()=>{try{await copyPuzzleText(match.string);feedback.textContent='Copied all '+match.string.length+' characters.'}catch{feedback.textContent='Clipboard access was blocked. Please allow clipboard access and try again.'}});
+      copyImage.addEventListener('click',async()=>{
+        try{await copyPuzzleImage(match.string);feedback.textContent='Grid image copied as PNG.'}
+        catch{feedback.textContent='Image clipboard access is unavailable. ';const download=document.createElement('button');download.type='button';download.textContent='Download PNG instead';download.addEventListener('click',async()=>{try{const blob=await puzzlePng(match.string);const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='greater-than-sudoku-trial-'+match.trial+'.png';link.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000)}catch{feedback.textContent='Unable to create the PNG image.'}});feedback.append(download)}
+      });
+      actions.append(copyString,copyImage);card.append(actions,feedback);
       const details=document.createElement('details'),summary=document.createElement('summary'),rating=document.createElement('div');summary.textContent='Technique tally';details.dataset.trial=String(match.trial);details.open=expanded.has(match.trial);renderRating(rating,match.score,match.tally,'Difficulty rating', step => onStep(match.solution, step));details.append(summary,rating);card.append(details);results.append(card);
     }
   }

@@ -1,0 +1,55 @@
+import { decodeCompactPuzzle } from './compact';
+import { puzzleBoard } from './board-view';
+import { createSolverView } from './solver-view';
+import { renderRating } from './rating-view';
+import type { Tally } from './difficulty';
+
+export function initVerify() {
+  const main=document.createElement('main');main.id='verify-page';main.hidden=true;
+  main.innerHTML=`<h1>Verify</h1><form id="verify-form"><label for="verify-input">Puzzle string</label><textarea id="verify-input" rows="5" spellcheck="false" required aria-describedby="verify-help"></textarea><p id="verify-help">Paste 144 characters for 9×9 or 60 for 6×6. Horizontal comparisons come first, then vertical comparisons. Use 0 for missing jigs. Whitespace is ignored, and ^ is accepted as ∧.</p><div class="verify-actions"><button type="submit">Verify</button><button id="verify-stop" type="button" disabled>Cancel</button></div></form><p id="verify-status" role="status">Enter a puzzle string to check its uniqueness.</p><div id="verify-results" hidden><div class="puzzles"><section class="puzzle-card"><h2>Jig puzzle</h2><div id="verify-puzzle"></div></section><section class="puzzle-card"><h2>Completed Sudoku</h2><div id="verify-solution"></div></section></div><section class="rating-panel"><div id="verify-rating"></div></section></div><div id="verify-walkthrough"></div>`;
+  document.querySelector('footer')!.before(main);
+  const get=<T extends HTMLElement>(id:string)=>main.querySelector<T>('#'+id)!;
+  const solver=createSolverView(()=>{}, {host:get('verify-walkthrough'),prefix:'verify-'});
+  get('verify-walkthrough').hidden=true;
+  let worker:Worker|undefined,startedAt=0,verified=false;
+  const elapsed=()=>`Elapsed time: ${((performance.now()-startedAt)/1000).toFixed(3)} seconds.`;
+  function stop(){worker?.terminate();worker=undefined;get<HTMLButtonElement>('verify-stop').disabled=true;}
+  function clear(){stop();verified=false;get('verify-results').hidden=true;get('verify-walkthrough').hidden=true;solver.reset([],9);get('verify-rating').replaceChildren();get('verify-solution').replaceChildren();get('verify-puzzle').replaceChildren();}
+  get<HTMLTextAreaElement>('verify-input').addEventListener('input',()=>{clear();get('verify-status').textContent='Input changed. Select Verify to check this puzzle.'});
+  get('verify-form').addEventListener('submit',event=>{
+    event.preventDefault();clear();startedAt=performance.now();
+    let puzzle:ReturnType<typeof decodeCompactPuzzle>;
+    try {puzzle=decodeCompactPuzzle(get<HTMLTextAreaElement>('verify-input').value);}
+    catch(error){get('verify-status').textContent=String(error instanceof Error?error.message:error);return;}
+    solver.reset(puzzle.jigs,puzzle.size);
+    get('verify-status').textContent=`Checking this ${puzzle.size}×${puzzle.size} puzzle with independent backtracking…`;
+    get<HTMLButtonElement>('verify-stop').disabled=false;
+    const active=new Worker(new URL('./verify.worker.ts',import.meta.url),{type:'module'});worker=active;
+    active.onmessage=(event:MessageEvent<{type:string;count?:number;solution?:number[];score:number;tally:Tally[];message?:string}>)=>{
+      if(worker!==active)return;const data=event.data;
+      if(data.type==='verified') {
+        verified=data.count===1;
+        get('verify-status').textContent=(verified?'Unique solution — exactly one valid completion.':data.count===0?'No solution. Difficulty and walkthrough are unavailable.':'Not unique — at least two valid completions. Difficulty and walkthrough are unavailable.')+' '+elapsed();
+        if(!verified){stop();return;}
+        get('verify-results').hidden=false;get('verify-walkthrough').hidden=false;
+        get('verify-puzzle').append(puzzleBoard(puzzle.jigs,puzzle.size));
+        get('verify-solution').append(puzzleBoard([],puzzle.size,data.solution));
+        get('verify-rating').textContent='Calculating difficulty…';solver.setVerifiedUnique(true);
+      } else if(data.type==='rating') {
+        renderRating(get('verify-rating'),data.score,data.tally,'Difficulty rating',step=>solver.jumpToStep(step));stop();
+      } else {
+        if(verified)get('verify-rating').textContent='Difficulty unavailable: '+data.message;
+        else get('verify-status').textContent='Verification failed: '+data.message+' '+elapsed();
+        stop();
+      }
+    };
+    active.onerror=()=>{if(worker!==active)return;if(verified)get('verify-rating').textContent='Difficulty calculation failed.';else get('verify-status').textContent='Verification failed. '+elapsed();stop()};
+    active.postMessage({string:puzzle.string});
+  });
+  get('verify-stop').addEventListener('click',()=>{
+    if(!worker)return;
+    if(verified)get('verify-rating').textContent='Difficulty calculation cancelled. '+elapsed();
+    else get('verify-status').textContent='Check cancelled — uniqueness is undetermined. '+elapsed();
+    stop();
+  });
+}

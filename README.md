@@ -48,7 +48,11 @@ The maker defaults to **9×9** (nine 3×3 regions) and also supports **6×6** (s
 
 The 6×6 format has 36 values and 42 jigs. Its compact string contains 60 positions: 30 horizontal edges in row order followed by 30 vertical edges in column order, using 0 at missing boundaries. The 9×9 string remains 144 characters. Notes, selection, copying, uniqueness, automatic unique generation, and the step solver follow the selected size. The completed Sudoku is at the bottom and remains collapsed by default.
 
-Header links open the maker and **Simulation difficulty** (`#simulation`, compatible with GitHub Pages). **About** opens the requested rules text in a keyboard-accessible modal.
+Header links open **Generate**, **Simulation difficulty**, and **Verify** at `/GreaterThanSudoku/generate/`, `/GreaterThanSudoku/simulation/`, and `/GreaterThanSudoku/verify/`. These clean paths have built HTML entry points for direct visits and reloads on GitHub Pages. Legacy hash links redirect to clean paths. **About** opens the rules in a keyboard-accessible modal. Grid type and Generate sit side by side.
+
+## Verify a puzzle string
+
+Paste a 60-character or 144-character string on **Verify**. Whitespace is ignored and legacy `^` is accepted as `∧`. Invalid lengths or symbols are rejected. Independent backtracking counts up to two solutions; only a verified unique puzzle displays its completed grid, difficulty rating, and interactive walkthrough. Editing the input clears stale results; verification and rating can be cancelled.
 
 ## Difficulty ratings
 
@@ -60,7 +64,7 @@ Ratings describe the deterministic path to **one completion**, not a uniqueness 
 
 Choose trials (1, 10, **100 default**, 1000, 10000, 100000, 1000000), grid size (**9×9 default** or 6×6), and minimum displayed score (0 default, 500, 1000, 2000, 3000, 10000, 10000000). Each trial generates one random puzzle and verifies uniqueness. Only unique puzzles are rated; all others are counted as skipped. The threshold is inclusive.
 
-Progress shows completed trials, unique puzzles rated, skipped puzzles, matching puzzles, and elapsed time. Mean, minimum and maximum ratings use only the verified unique puzzles; there is no rating assigned to skipped puzzles. Matches show the jig grid, its 144-character (9×9) or 60-character (6×6) string, and its individual tally. Ten matches are rendered per page; other matches are kept in browser IndexedDB for the current run. Starting a new run or leaving/reloading the website clears that temporary run storage. Browser storage failures stop the run explicitly and leave already reported results available. Large runs are cancellable; a cancelled in-progress trial is not counted as completed. Normal hash navigation preserves an active simulation.
+Progress shows completed trials, unique puzzles rated, skipped puzzles, matching puzzles, and elapsed time. Mean, minimum and maximum ratings use only the verified unique puzzles; there is no rating assigned to skipped puzzles. Matches show the jig grid, difficulty, technique tally, and elapsed time for that individual trial (generation, uniqueness check, and rating). Buttons copy the hidden puzzle string or the grid as a PNG image; a PNG download is offered if image clipboard access is unavailable. Ten matches are rendered per page; other matches are kept in browser IndexedDB for the current run. Starting a new run or leaving/reloading the website clears that temporary run storage. Browser storage failures stop the run explicitly and leave already reported results available. Large runs are cancellable; a cancelled in-progress trial is not counted as completed. Navigation between pages preserves an active simulation.
 
 ## Candidate notes
 
@@ -75,6 +79,8 @@ These are local candidate bounds, not conventional two-location Snyder marks. A 
 Step numbers in the **Steps** column are clickable and keyboard-accessible. Clicking one opens and focuses that walkthrough step, starting the walkthrough automatically if necessary. Simulation result links first open their corresponding puzzle in the maker and verify uniqueness before jumping to the step. Generating another puzzle cancels pending jumps. The repeated front-page heading and rules paragraph have been removed; the rules remain in **About**.
 
 **Solve step by step** starts a separate solving view from the empty jig grid and local notes. Use **Next**, **Previous**, or the step selector to inspect each state. Each step names its technique, explains the deduction, lists placements and candidate removals (including peer removals), and highlights changed cells on the grid after the step. The original jig grid, local notes, and export remain available separately.
+
+Candidates removed in the current step remain visible crossed out in red, then disappear in the following step. This is a visual overlay only: solver candidate state already reflects the elimination. Newly placed values with removed alternatives are shown among the notes for that step and become full-size values on the following step.
 
 The solver alternates jig inequality deductions with the enabled imported sudokUI techniques in their normal order: singles, intersections, subsets, fish, wings, chains, coloring, ALS, and the other enabled logical finders. Classic uniqueness techniques are excluded: a classic digit-swap argument need not preserve variant jigs. The engine receives only jigs and initial local notes, never the displayed solution or uniqueness result.
 

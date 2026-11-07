@@ -1,16 +1,20 @@
+import { stepNotes } from './step-notes';
 import { createBacktrackingCheck } from './backtracking-check-view';
 import type { Jig } from './sudoku';
 import type { SolveFrame } from './logical-solver';
 
-export function createSolverView(onVerified: (count:number)=>void = () => {}) {
+export function createSolverView(onVerified: (count:number)=>void = () => {}, options: {host?: HTMLElement; prefix?: string} = {}) {
+  const prefix = options.prefix ?? '';
   const section = document.createElement('section');
   section.className = 'solver-section';
   section.innerHTML = `<div class="solver-heading"><div><p class="eyebrow">FOLLOW THE DEDUCTIONS</p><h2>Step-by-step solver</h2></div><button id="solve-steps" type="button">Solve step by step</button></div>
     <p id="solver-status" role="status" aria-live="polite">Start from the local jig notes and follow the logical techniques.</p>
-    <div id="solver-content" hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p class="step-key">Highlighted cells changed in this step. The grid shows the state after the deduction.</p></div></div></div>`;
-  document.querySelector('.guide')!.before(section);
-  const backtrackingCheck = createBacktrackingCheck(section, onVerified);
-  const get = <T extends HTMLElement>(id: string) => section.querySelector<T>(`#${id}`)!;
+    <div id="solver-content" data-solver-content hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p class="step-key">Red crossed-out notes are removed in this step and disappear in the next. Highlighted cells changed; bold green notes mark newly placed digits.</p></div></div></div>`;
+  section.querySelector('.board')!.classList.add('walkthrough-board');
+  section.querySelectorAll<HTMLElement>('[id]').forEach(el => { el.id = prefix + el.id; });
+  if (options.host) options.host.append(section); else document.querySelector('.guide')!.before(section);
+  const backtrackingCheck = createBacktrackingCheck(section, onVerified, prefix);
+  const get = <T extends HTMLElement>(id: string) => section.querySelector<T>(`#${prefix}${id}`)!;
   let worker: Worker | undefined;
   let frames: SolveFrame[] = [];
   let index = 0;
@@ -30,10 +34,18 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}) {
       const el = document.createElement('span');
       el.className = `cell${col % (size / 3) === size / 3 - 1 && col < size - 1 ? ' box-right' : ''}${row % 3 === 2 && row < size - 1 ? ' box-bottom' : ''}${changed.has(cell) ? ' deduction-cell' : ''}`;
       el.setAttribute('aria-hidden', 'true');
-      if (value) el.textContent = String(value);
+      const display = stepNotes(frame, frames[index - 1], cell);
+      if (!display.showNotes) el.textContent = String(value);
       else {
         const notes = document.createElement('span'); notes.className = 'solver-notes';
-        for (let d = 1; d <= size; d++) { const mark = document.createElement('span'); mark.textContent = frame.candidates[cell].includes(d) ? String(d) : ''; notes.append(mark); }
+        for (let d = 1; d <= size; d++) {
+          const mark = document.createElement('span');
+          const removed = display.removed.includes(d);
+          mark.textContent = removed || display.remaining.includes(d) ? String(d) : '';
+          if (removed) mark.className = 'removed-note';
+          else if (value === d) mark.className = 'placed-note';
+          notes.append(mark);
+        }
         el.append(notes);
       }
       board.append(el);
@@ -44,7 +56,7 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}) {
       mark.style.top = `${(j.row + (j.direction === 'vertical' ? 1 : .5)) / size * 100}%`;
       mark.setAttribute('aria-hidden', 'true'); board.append(mark);
     }
-    board.setAttribute('aria-label', frame.values.map((v, i) => `${coordinate(i)}: ${v || `candidates ${frame.candidates[i].join(', ')}`}`).join('; '));
+    board.setAttribute('aria-label', frame.values.map((v, i) => `${coordinate(i)}: ${v || `candidates ${frame.candidates[i].join(', ')}`}${stepNotes(frame, frames[index - 1], i).removed.length ? '; crossed out ' + stepNotes(frame, frames[index - 1], i).removed.join(', ') : ''}`).join('; '));
     get('step-title').textContent = `${index}. ${frame.title}`;
     get('step-description').textContent = frame.description;
     get('step-placements').textContent = frame.placements.length ? `Place: ${frame.placements.map(p => `${coordinate(p.cell)} = ${p.digit}`).join('; ')}.` : '';
