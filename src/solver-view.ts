@@ -17,6 +17,7 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}) {
   let jigs: Jig[] = [];
   let size = 9;
   let verifiedUnique = false;
+  let requestedIndex: number | undefined;
   const coordinate = (cell: number) => `R${Math.floor(cell / size) + 1}C${cell % size + 1}`;
   function render() {
     const frame = frames[index];
@@ -52,10 +53,14 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}) {
     get<HTMLButtonElement>('step-prev').disabled = index === 0;
     get<HTMLButtonElement>('step-next').disabled = index === frames.length - 1;
   }
-  function stop() { worker?.terminate(); worker = undefined; get('solve-steps').textContent = 'Solve step by step'; }
-  get('solve-steps').addEventListener('click', () => {
+  function stop() { worker?.terminate(); worker = undefined; requestedIndex = undefined; get('solve-steps').textContent = 'Solve step by step'; }
+  function revealStep() {
+    get('solver-content').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    get('step-title').tabIndex = -1; get('step-title').focus({ preventScroll: true });
+  }
+  function startSolving(target?: number) {
     if (!verifiedUnique) return;
-    if (worker) { stop(); get('solver-status').textContent = 'Stopped. You can review the steps found so far or restart.'; return; }
+    requestedIndex = target;
     frames = []; index = 0; get('solver-content').hidden = true; get('step-select').replaceChildren();
     const active = new Worker(new URL('./logical-solver.worker.ts', import.meta.url), { type: 'module' }); worker = active;
     get('solve-steps').textContent = 'Stop solving'; get('solver-status').textContent = 'Starting from local jig notes…';
@@ -65,16 +70,29 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}) {
       if (data.type === 'step') {
         frames.push(data.frame);
         const option = document.createElement('option'); option.value = String(frames.length - 1); option.textContent = `${frames.length - 1}: ${data.frame.title}`;
-        get('step-select').append(option); render();
+        get('step-select').append(option);
+        if (requestedIndex !== undefined) {
+          if (frames[requestedIndex]) { index = requestedIndex; requestedIndex = undefined; render(); revealStep(); }
+        } else render();
       } else if (data.type === 'progress') get('solver-status').textContent = data.message;
       else { stop(); get('solver-status').textContent = data.type === 'error' ? data.message : `Finished: ${data.logicSteps} logical steps${data.usedBacktracking ? ', then backtracking found one completion.' : '; solved entirely by logic.'} Use Next to follow the steps.`; }
     };
     active.onerror = () => { if (worker !== active) return; stop(); get('solver-status').textContent = 'The solver encountered an error. Please try again.'; };
     active.postMessage({jigs,size});
+  }
+  get('solve-steps').addEventListener('click', () => {
+    if (worker) { stop(); get('solver-status').textContent = 'Stopped. You can review the steps found so far or restart.'; }
+    else startSolving();
   });
-  get('step-prev').addEventListener('click', () => { if (index > 0) { index--; render(); } });
-  get('step-next').addEventListener('click', () => { if (index < frames.length - 1) { index++; render(); } });
-  get('step-select').addEventListener('change', () => { index = Number(get<HTMLSelectElement>('step-select').value); render(); });
+  function jumpToStep(step: number) {
+    if (!verifiedUnique || !Number.isInteger(step) || step < 0) return;
+    if (frames[step]) { requestedIndex = undefined; index = step; render(); revealStep(); return; }
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (worker) requestedIndex = step; else startSolving(step);
+  }
+  get('step-prev').addEventListener('click', () => { requestedIndex = undefined; if (index > 0) { index--; render(); } });
+  get('step-next').addEventListener('click', () => { requestedIndex = undefined; if (index < frames.length - 1) { index++; render(); } });
+  get('step-select').addEventListener('change', () => { requestedIndex = undefined; index = Number(get<HTMLSelectElement>('step-select').value); render(); });
   function setVerifiedUnique(verified: boolean, message = 'Waiting for a verified unique solution before showing the walkthrough.') {
     verifiedUnique = verified;
     get<HTMLButtonElement>('solve-steps').disabled = !verified;
@@ -82,5 +100,5 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}) {
     get('solver-status').textContent = verified ? 'Unique solution verified. Start the walkthrough from local jig notes.' : message;
   }
   setVerifiedUnique(false);
-  return { setVerifiedUnique, reset(next: Jig[], nextSize = 9) { stop(); setVerifiedUnique(false); backtrackingCheck.reset(next, nextSize); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Waiting for a verified unique solution before showing the walkthrough.'; } };
+  return { jumpToStep, setVerifiedUnique, reset(next: Jig[], nextSize = 9) { stop(); setVerifiedUnique(false); backtrackingCheck.reset(next, nextSize); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Waiting for a verified unique solution before showing the walkthrough.'; } };
 }

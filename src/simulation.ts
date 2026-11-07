@@ -18,7 +18,7 @@ function preview(string: string,size:number) {
   for(let c=0;c<size;c++)for(let r=0;r<size-1;r++)mark(r,c,true);
   return board;
 }
-export function initSimulation() {
+export function initSimulation(onStep: (grid: number[][], step: number) => void) {
   const main=document.createElement('main');main.id='simulation-page';main.hidden=true;
   main.innerHTML=`<h1>Simulation difficulty</h1><p>Generate and rate random puzzles. Each trial is checked for uniqueness first. Only verified unique puzzles are rated; other trials are skipped. Ratings use the same solver and scoring as the puzzle maker.</p>
   <form id="simulation-form" class="simulation-controls"><label>Total trials<select name="trials">${[1,10,100,1000,10000,100000,1000000].map(n=>`<option value="${n}" ${n===100?'selected':''}>${n.toLocaleString()}</option>`).join('')}</select></label>
@@ -40,7 +40,9 @@ export function initSimulation() {
     const pages=Math.max(1,Math.ceil(matchCount/10));page=Math.min(page,pages-1);
     get<HTMLButtonElement>('simulation-prev').disabled=page===0;get<HTMLButtonElement>('simulation-next').disabled=page>=pages-1;
     get('simulation-page-count').textContent=`Page ${page+1} of ${pages}`;
-    const results=get('simulation-results');results.replaceChildren();
+    const results=get('simulation-results');
+    const expanded = new Set(Array.from(results.querySelectorAll<HTMLDetailsElement>('details[open]'), detail => Number(detail.dataset.trial)));
+    results.replaceChildren();
     let visible:Match[]=[];
     try {if(database && matchCount) visible=await readMatches(database,page);} catch(error) {if(requestId===renderId) results.textContent=String(error);return;}
     if(requestId!==renderId)return;
@@ -49,7 +51,7 @@ export function initSimulation() {
       const heading=document.createElement('h2');heading.textContent=`Trial ${match.trial} · Rating ${match.score.toLocaleString()}`;card.append(heading,preview(match.string,size));
       const label=document.createElement('label');label.textContent=`${match.string.length}-character puzzle string`;
       const text=document.createElement('textarea');text.readOnly=true;text.value=match.string;text.rows=3;label.append(text);card.append(label);
-      const details=document.createElement('details'),summary=document.createElement('summary'),rating=document.createElement('div');summary.textContent='Technique tally';renderRating(rating,match.score,match.tally);details.append(summary,rating);card.append(details);results.append(card);
+      const details=document.createElement('details'),summary=document.createElement('summary'),rating=document.createElement('div');summary.textContent='Technique tally';details.dataset.trial=String(match.trial);details.open=expanded.has(match.trial);renderRating(rating,match.score,match.tally,'Difficulty rating', step => onStep(match.solution, step));details.append(summary,rating);card.append(details);results.append(card);
     }
   }
   function stop(message:string){if(worker){worker.terminate();worker=undefined;elapsed=performance.now()-started}window.clearInterval(timer);outcome=message;get<HTMLButtonElement>('simulation-stop').disabled=true;form.querySelectorAll<HTMLSelectElement>('select').forEach(e=>e.disabled=false);form.querySelector<HTMLButtonElement>('[type=submit]')!.disabled=false;status();}

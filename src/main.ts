@@ -10,7 +10,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><nav aria-label="Main navigation"><a href="#home">Puzzle maker</a><a href="#simulation">Simulation difficulty</a><button id="about-open" type="button">About</button></nav></header>
   <main id="home-page">
     <section class="intro">
-      <div><h1>Greater Than Sudoku</h1><p class="description">Normal sudoku rules apply. The jigs indicate whether adjacent cells are greater than or less than each other.</p></div>
       <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label><p>A fresh grid. A new perspective.</p></div>
     </section>
     <section class="puzzles" aria-label="Generated Sudoku puzzles">
@@ -27,7 +26,14 @@ document.querySelector('#about-open')!.addEventListener('click', () => document.
 const solutionCard = document.querySelector<HTMLElement>('.puzzle-card')!;
 solutionCard.classList.add('solution-card');
 document.querySelector('#home-page')!.append(solutionCard);
-initSimulation();
+initSimulation((grid, step) => {
+  endUniqueSearch('Search stopped to open a simulation puzzle.');
+  location.hash = '#home';
+  size = grid.length;
+  document.querySelector<HTMLSelectElement>('#grid-type')!.value = String(size);
+  displayPuzzle(grid);
+  requestedStep = step;
+});
 const solutionBoard = document.querySelector<HTMLElement>('#solution')!;
 const solutionContent = document.createElement('div');
 solutionContent.id = 'solution-content';
@@ -89,6 +95,7 @@ function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
 let size = 9;
 let ratingWorker: Worker | undefined;
 let verificationCount: number | undefined;
+let requestedStep: number | undefined;
 document.querySelector('.jig-card')!.insertAdjacentHTML('afterend', '<section class="rating-panel"><div id="difficulty-result" role="status"></div><p>Rating = logical technique scores + 10,000 per guessed backtracking branch (including failed guesses). Jig deductions score 0. This rates one completion, not the uniqueness proof. 6×6 uses singles, locked candidates and pairs; 9×9 also uses imported advanced techniques.</p></section>');
 let generation = 0;
 let puzzleString = '';
@@ -213,7 +220,7 @@ function startRating() {
   rating.onmessage = (event: MessageEvent<{error?:string;score:number;tally:Tally[]}>) => {
     if (ratingWorker !== rating) return;
     if (event.data.error) ratingView.textContent = 'Difficulty unavailable: ' + event.data.error;
-    else renderRating(ratingView,event.data.score,event.data.tally);
+    else renderRating(ratingView,event.data.score,event.data.tally,'Difficulty rating', step => solverView.jumpToStep(step));
     rating.terminate(); ratingWorker=undefined;
   };
   rating.onerror = () => { if(ratingWorker === rating) {ratingView.textContent='Difficulty calculation failed.';rating.terminate();ratingWorker=undefined;} };
@@ -228,7 +235,9 @@ function handleVerification(count?: number) {
   if (count === 1) {
     solverView.setVerifiedUnique(true);
     if (previous !== 1) startRating();
+    if (requestedStep !== undefined) { solverView.jumpToStep(requestedStep); requestedStep = undefined; }
   } else {
+    requestedStep = undefined;
     ratingWorker?.terminate(); ratingWorker = undefined;
     const message = count === 2 ? 'This puzzle is not unique. Difficulty and walkthrough are unavailable.' : count === 0 ? 'This puzzle has no solution. Difficulty and walkthrough are unavailable.' : 'Uniqueness is unverified. Difficulty and walkthrough are unavailable until a unique solution is confirmed.';
     document.querySelector('#difficulty-result')!.textContent = message;
@@ -236,8 +245,10 @@ function handleVerification(count?: number) {
   }
 }
 
-function generate() {
-  const grid = generateSolution(size);
+function generate() { displayPuzzle(generateSolution(size)); }
+
+function displayPuzzle(grid: Grid) {
+  requestedStep = undefined;
   const jigs = createJigs(grid);
   currentJigs = jigs;
   verificationCount = undefined;

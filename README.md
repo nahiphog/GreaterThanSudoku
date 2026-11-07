@@ -72,6 +72,8 @@ These are local candidate bounds, not conventional two-location Snyder marks. A 
 
 ## Step-by-step solving
 
+Step numbers in the **Steps** column are clickable and keyboard-accessible. Clicking one opens and focuses that walkthrough step, starting the walkthrough automatically if necessary. Simulation result links first open their corresponding puzzle in the maker and verify uniqueness before jumping to the step. Generating another puzzle cancels pending jumps. The repeated front-page heading and rules paragraph have been removed; the rules remain in **About**.
+
 **Solve step by step** starts a separate solving view from the empty jig grid and local notes. Use **Next**, **Previous**, or the step selector to inspect each state. Each step names its technique, explains the deduction, lists placements and candidate removals (including peer removals), and highlights changed cells on the grid after the step. The original jig grid, local notes, and export remain available separately.
 
 The solver alternates jig inequality deductions with the enabled imported sudokUI techniques in their normal order: singles, intersections, subsets, fish, wings, chains, coloring, ALS, and the other enabled logical finders. Classic uniqueness techniques are excluded: a classic digit-swap argument need not preserve variant jigs. The engine receives only jigs and initial local notes, never the displayed solution or uniqueness result.
