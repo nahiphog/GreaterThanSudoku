@@ -1,6 +1,6 @@
 import './style.css';
 import { initVerify } from './verify';
-import { initNavigation, navigate, currentPage } from './navigation';
+import { initNavigation, navigate } from './navigation';
 import { renderRating } from './rating-view';
 import { initSimulation } from './simulation';
 import type { Tally } from './difficulty';
@@ -251,6 +251,7 @@ function handleVerification(count?: number) {
 function generate() { displayPuzzle(generateSolution(size)); }
 
 function displayPuzzle(grid: Grid) {
+  setPuzzleVisible(true);
   requestedStep = undefined;
   const jigs = createJigs(grid);
   currentJigs = jigs;
@@ -298,7 +299,11 @@ function displayPuzzle(grid: Grid) {
 document.querySelector('#grid-type')!.addEventListener('change', () => {
   endUniqueSearch('Search stopped to change grid type.');
   size = Number(document.querySelector<HTMLSelectElement>('#grid-type')!.value);
-  startUniqueGeneration();
+  cancelUniqueness?.();
+  notesWorker?.terminate();ratingWorker?.terminate();
+  notesWorker=undefined;ratingWorker=undefined;
+  solverView.reset([],size);
+  setPuzzleVisible(false);
 });
 async function copyString(value: string, statusId: string) {
   const copiedGeneration = generation;
@@ -328,7 +333,9 @@ document.querySelector('#copy-puzzle')!.addEventListener('click', () => {
 document.querySelector('#copy-solution')!.addEventListener('click', () => {
   void copyString(solutionString, '#solution-copy-status');
 });
-window.addEventListener('pagechange', () => {
-  if (currentPage() === 'generate' && generation === 0) startUniqueGeneration();
-});
+function setPuzzleVisible(visible:boolean) {
+  document.querySelectorAll<HTMLElement>('#home-page > .puzzles, #home-page > .solver-section, #home-page > .solution-card, #home-page > .bottom-line').forEach(el=>el.hidden=!visible);
+  if(!visible)document.querySelector('#unique-search-status')!.textContent='Choose a grid type and click Generate to create a puzzle.';
+}
+setPuzzleVisible(false);
 initNavigation();

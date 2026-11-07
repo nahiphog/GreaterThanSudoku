@@ -37,9 +37,11 @@ test('6x6 logical steps preserve every solution and uniqueness agrees with indep
   for(let trial=0;trial<30;trial++) {
     const jigs=createJigs(generateSolution(6)),solutions=enumerate(jigs);
     assert.ok(solutions.length>0);
+    let compatible=solutions;
     solveSix(jigs,frame=>{
-      if(frame.kind==='backtracking') {assert.ok(solutions.some(s=>s.join()===frame.values.join()));return;}
-      for(const solution of solutions) solution.forEach((d,c)=>{if(frame.values[c])assert.equal(frame.values[c],d);else assert.ok(frame.candidates[c].includes(d));});
+      if(frame.kind==='backtracking') compatible=compatible.filter(s=>s.every((d,c)=>frame.values[c]?frame.values[c]===d:frame.candidates[c].includes(d)));
+      assert.ok(compatible.length>0);
+      for(const solution of compatible) solution.forEach((d,c)=>{if(frame.values[c])assert.equal(frame.values[c],d);else assert.ok(frame.candidates[c].includes(d));});
     });
     const check=checkUniqueness(jigs,()=>{},6);assert.equal(check.count,Math.min(2,solutions.length));
   }
@@ -48,7 +50,7 @@ test('difficulty tally is sorted and every guessed branch costs 10000',()=>{
   for(const size of [6,9]) {
     const rating=ratePuzzle([],size);
     assert.ok(rating.bruteForceUses>1);
-    assert.equal(rating.score,rating.bruteForceUses*10000);
+    assert.equal(rating.score,rating.bruteForceUses*10000+rating.tally.filter(t=>!t.name.startsWith('Brute force')).reduce((sum,t)=>sum+t.count*t.score,0));
     assert.equal(rating.tally.find(t=>t.name.startsWith('Brute force'))!.count,rating.bruteForceUses);
   }
   const rating=ratePuzzle(createJigs(generateSolution(6)),6);

@@ -10,14 +10,16 @@ export function solvePuzzle(jigs: Jig[], size: number, emit: (frame: SolveFrame)
 export function ratePuzzle(jigs: Jig[], size: number) {
   const tally: Tally[]=[];
   let step = 0;
+  const backtrackingSteps:number[]=[];
   const result=solvePuzzle(jigs,size,frame=>{
     if(frame.kind!=='initial') step++;
+    if(frame.kind==='backtracking') backtrackingSteps.push(step);
     if(frame.kind!=='logic') return;
     const score=Object.values(TECHS).find(t=>t.name===frame.title)?.score ?? 0;
     const item=tally.find(t=>t.name===frame.title);
     if(item) { item.count++; item.steps.push(step); } else tally.push({name:frame.title,count:1,score,steps:[step]});
   });
-  if(result.bruteForceUses) tally.push({name:'Brute force (guessed branch)',count:result.bruteForceUses,score:10000,steps:[step]});
+  if(result.bruteForceUses) tally.push({name:'Brute force (guessed branch)',count:result.bruteForceUses,score:10000,steps:backtrackingSteps});
   tally.sort((a,b)=>a.score-b.score || a.name.localeCompare(b.name));
   return {score:tally.reduce((sum,t)=>sum+t.score*t.count,0),tally,...result};
 }

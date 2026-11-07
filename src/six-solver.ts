@@ -63,7 +63,7 @@ export function searchDomains(jigs: Jig[], size: number, initial: number[][], li
 export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBacktracking = true) {
   const size = 6, units = unitsFor(size), edges = edgesFor(jigs, size);
   const values = Array<number>(36).fill(0);
-  let candidates = jigCandidates(jigs, size), logicSteps = 0;
+  let candidates = jigCandidates(jigs, size), logicSteps = 0, bruteForceUses = 0;
   const name = (c: number) => `R${Math.floor(c / size) + 1}C${c % size + 1}`;
   const record = (title: string, description: string, kind: SolveFrame['kind'], oldValues = [...values], oldCandidates = candidates.map(d => [...d])) => {
     emit({ title, description, kind, values: [...values], candidates: candidates.map(d => [...d]),
@@ -75,6 +75,7 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
     if (candidates.some((d,c) => !values[c] && !d.length)) throw new Error('Contradictory candidates.');
     const oldValues = [...values], oldCandidates = candidates.map(d => [...d]);
     let title = '', description = '', placement: [number, number] | undefined;
+    let kind: SolveFrame['kind'] = 'logic';
     for (const [a,b] of edges) {
       const left = values[a] ? [values[a]] : candidates[a], right = values[b] ? [values[b]] : candidates[b];
       if (!values[a]) candidates[a] = left.filter(x => right.some(y => x < y));
@@ -110,18 +111,23 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
       const others=unit.filter(c=>c!==a&&c!==b&&!values[c]&&candidates[c].some(d=>pair.includes(d)));
       if (others.length) { others.forEach(c=>{candidates[c]=candidates[c].filter(d=>!pair.includes(d))}); title='Naked Pair'; description=`${name(a)} and ${name(b)} contain only ${pair.join(', ')}, so remove those digits from other cells in their shared unit.`; break outer; }
     }
-    if (!title) break;
+    if (!title) {
+      if (!allowBacktracking) break;
+      const result=searchDomains(jigs,size,candidates.map((d,c)=>values[c]?[values[c]]:d));
+      if (!result.solutions.length) throw new Error('No completion found.');
+      bruteForceUses+=result.bruteForceUses;
+      const cell=candidates.reduce((best,ds,c)=>!values[c] && (best<0 || ds.length<candidates[best].length)?c:best,-1);
+      placement=[cell,result.solutions[0][cell]];
+      title='Backtracking placement — last resort';
+      description=`Logical techniques stalled. Search used ${result.bruteForceUses} guessed branches to find a completion. Take ${name(cell)} = ${placement[1]} from that completion, then resume logical deductions. This placement is search-assisted, not a logical deduction or uniqueness proof.`;
+      kind='backtracking';
+    }
     if (placement) {
       const [c,d]=placement; values[c]=d; candidates[c]=[];
       for (const unit of units.filter(u=>u.includes(c))) for (const peer of unit) if (!values[peer]) candidates[peer]=candidates[peer].filter(x=>x!==d);
     }
-    logicSteps++; record(title,description,'logic',oldValues,oldCandidates);
+    if(kind==='logic')logicSteps++;
+    record(title,description,kind,oldValues,oldCandidates);
   }
-  if (values.every(Boolean) || !allowBacktracking) return {usedBacktracking:false,logicSteps,bruteForceUses:0};
-  const result=searchDomains(jigs,size,candidates.map((d,c)=>values[c]?[values[c]]:d));
-  if (!result.solutions.length) throw new Error('No completion found.');
-  const oldValues=[...values],oldCandidates=candidates.map(d=>[...d]);
-  values.splice(0,36,...result.solutions[0]); candidates=Array.from({length:36},()=>[]);
-  record('Backtracking completion — last resort', `Logical techniques stalled. Search used ${result.bruteForceUses} guessed branches to find one completion; this does not prove uniqueness.`, 'backtracking',oldValues,oldCandidates);
-  return {usedBacktracking:true,logicSteps,bruteForceUses:result.bruteForceUses};
+  return {usedBacktracking:bruteForceUses>0,logicSteps,bruteForceUses};
 }
