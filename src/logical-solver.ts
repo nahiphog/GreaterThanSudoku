@@ -10,7 +10,8 @@ export type SolveFrame = {
   kind: 'initial' | 'logic' | 'backtracking';
 };
 // Classic uniqueness deductions can change inequalities when swapping digits.
-export const LOGIC_ORDER = SOLVE_ORDER.filter(t => TECHS[t].category !== 'Uniqueness' && t !== 'BRUTE_FORCE');
+export const DISABLED_TECHNIQUES = new Set(['MEDUSA_3D', 'FINNED_JELLYFISH', 'GROUPED_NICE_LOOP', 'ALIGNED_PAIR_EXCLUSION', 'ALS_XY_CHAIN', 'DIGIT_FORCING_CHAIN', 'NISHIO_FORCING_CHAIN']);
+export const LOGIC_ORDER = SOLVE_ORDER.filter(t => !DISABLED_TECHNIQUES.has(t) && TECHS[t].category !== 'Uniqueness' && t !== 'BRUTE_FORCE');
 const name = (cell: number) => `R${Math.floor(cell / 9) + 1}C${cell % 9 + 1}`;
 
 export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, progress: (message: string) => void = () => {}, allowBacktracking = true) {

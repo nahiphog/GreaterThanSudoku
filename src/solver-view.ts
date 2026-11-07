@@ -2,20 +2,21 @@ import { createBacktrackingCheck } from './backtracking-check-view';
 import type { Jig } from './sudoku';
 import type { SolveFrame } from './logical-solver';
 
-export function createSolverView() {
+export function createSolverView(onVerified: (count:number)=>void = () => {}) {
   const section = document.createElement('section');
   section.className = 'solver-section';
   section.innerHTML = `<div class="solver-heading"><div><p class="eyebrow">FOLLOW THE DEDUCTIONS</p><h2>Step-by-step solver</h2></div><button id="solve-steps" type="button">Solve step by step</button></div>
     <p id="solver-status" role="status" aria-live="polite">Start from the local jig notes and follow the logical techniques.</p>
     <div id="solver-content" hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p class="step-key">Highlighted cells changed in this step. The grid shows the state after the deduction.</p></div></div></div>`;
   document.querySelector('.guide')!.before(section);
-  const backtrackingCheck = createBacktrackingCheck(section);
+  const backtrackingCheck = createBacktrackingCheck(section, onVerified);
   const get = <T extends HTMLElement>(id: string) => section.querySelector<T>(`#${id}`)!;
   let worker: Worker | undefined;
   let frames: SolveFrame[] = [];
   let index = 0;
   let jigs: Jig[] = [];
   let size = 9;
+  let verifiedUnique = false;
   const coordinate = (cell: number) => `R${Math.floor(cell / size) + 1}C${cell % size + 1}`;
   function render() {
     const frame = frames[index];
@@ -53,6 +54,7 @@ export function createSolverView() {
   }
   function stop() { worker?.terminate(); worker = undefined; get('solve-steps').textContent = 'Solve step by step'; }
   get('solve-steps').addEventListener('click', () => {
+    if (!verifiedUnique) return;
     if (worker) { stop(); get('solver-status').textContent = 'Stopped. You can review the steps found so far or restart.'; return; }
     frames = []; index = 0; get('solver-content').hidden = true; get('step-select').replaceChildren();
     const active = new Worker(new URL('./logical-solver.worker.ts', import.meta.url), { type: 'module' }); worker = active;
@@ -73,5 +75,12 @@ export function createSolverView() {
   get('step-prev').addEventListener('click', () => { if (index > 0) { index--; render(); } });
   get('step-next').addEventListener('click', () => { if (index < frames.length - 1) { index++; render(); } });
   get('step-select').addEventListener('change', () => { index = Number(get<HTMLSelectElement>('step-select').value); render(); });
-  return { reset(next: Jig[], nextSize = 9) { stop(); backtrackingCheck.reset(next, nextSize); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Start from the local jig notes and follow the logical techniques.'; } };
+  function setVerifiedUnique(verified: boolean, message = 'Waiting for a verified unique solution before showing the walkthrough.') {
+    verifiedUnique = verified;
+    get<HTMLButtonElement>('solve-steps').disabled = !verified;
+    if (!verified) { stop(); frames = []; index = 0; get('solver-content').hidden = true; get('step-select').replaceChildren(); }
+    get('solver-status').textContent = verified ? 'Unique solution verified. Start the walkthrough from local jig notes.' : message;
+  }
+  setVerifiedUnique(false);
+  return { setVerifiedUnique, reset(next: Jig[], nextSize = 9) { stop(); setVerifiedUnique(false); backtrackingCheck.reset(next, nextSize); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Waiting for a verified unique solution before showing the walkthrough.'; } };
 }

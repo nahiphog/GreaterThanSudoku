@@ -11,7 +11,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main id="home-page">
     <section class="intro">
       <div><h1>Greater Than Sudoku</h1><p class="description">Normal sudoku rules apply. The jigs indicate whether adjacent cells are greater than or less than each other.</p></div>
-      <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label><button id="generate" type="button"><span aria-hidden="true">↻</span> Generate</button><p>A fresh grid. A new perspective.</p></div>
+      <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label><p>A fresh grid. A new perspective.</p></div>
     </section>
     <section class="puzzles" aria-label="Generated Sudoku puzzles">
       <article class="puzzle-card"><div class="card-heading"><div><p class="eyebrow">01 / THE STARTING POINT</p><h2>Completed Sudoku</h2></div><span class="badge">81 numbers</span></div><div id="solution" class="board" role="img"></div><p class="card-caption"><span class="caption-dot"></span>Every row, column, and box contains 1–9.</p></article>
@@ -47,8 +47,8 @@ document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend'
 document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
 document.querySelector('#selected-cell')!.insertAdjacentHTML('afterend', '<button id="check-uniqueness" class="copy-button" type="button">Check uniqueness</button><p id="uniqueness-status" class="selection-status" role="status" aria-live="polite"></p>');
 
-const solverView = createSolverView();
-document.querySelector('.generate-area')!.insertAdjacentHTML('beforeend', '<button id="generate-unique" class="copy-button" type="button">Generate until unique</button><p id="unique-search-status" role="status" aria-live="polite"></p>');
+const solverView = createSolverView(count => handleVerification(count));
+document.querySelector('.generate-area')!.insertAdjacentHTML('beforeend', '<button id="generate-unique" class="copy-button" type="button">Generate</button><p id="unique-search-status" role="status" aria-live="polite"></p>');
 
 function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
   const size = grid.length, width = size / 3;
@@ -88,6 +88,7 @@ function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
 
 let size = 9;
 let ratingWorker: Worker | undefined;
+let verificationCount: number | undefined;
 document.querySelector('.jig-card')!.insertAdjacentHTML('afterend', '<section class="rating-panel"><div id="difficulty-result" role="status"></div><p>Rating = logical technique scores + 10,000 per guessed backtracking branch (including failed guesses). Jig deductions score 0. This rates one completion, not the uniqueness proof. 6×6 uses singles, locked candidates and pairs; 9×9 also uses imported advanced techniques.</p></section>');
 let generation = 0;
 let puzzleString = '';
@@ -111,7 +112,7 @@ function endUniqueSearch(message: string) {
   showSearchStatus(message);
   window.clearInterval(uniqueSearch.timer);
   uniqueSearch = undefined;
-  document.querySelector('#generate-unique')!.textContent = 'Generate until unique';
+  document.querySelector('#generate-unique')!.textContent = 'Generate';
 }
 
 function tryNextPuzzle() {
@@ -121,7 +122,7 @@ function tryNextPuzzle() {
   generate();
 }
 
-document.querySelector('#generate-unique')!.addEventListener('click', () => {
+function startUniqueGeneration() {
   if (uniqueSearch) {
     endUniqueSearch('Search stopped.');
     cancelUniqueness?.();
@@ -131,7 +132,8 @@ document.querySelector('#generate-unique')!.addEventListener('click', () => {
   uniqueSearch.timer = window.setInterval(() => showSearchStatus('Searching…'), 1000);
   document.querySelector('#generate-unique')!.textContent = 'Stop searching';
   tryNextPuzzle();
-});
+}
+document.querySelector('#generate-unique')!.addEventListener('click', startUniqueGeneration);
 
 function startUniquenessCheck() {
   uniquenessWorker?.terminate();
@@ -147,6 +149,7 @@ function startUniquenessCheck() {
     document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
     cancelUniqueness = undefined;
     document.querySelector('#uniqueness-status')!.textContent = `${message} Elapsed time: ${((performance.now() - startedAt) / 1000).toFixed(3)} seconds.`;
+    handleVerification(count);
     if (uniqueSearch) {
       if (count === 1) endUniqueSearch('Unique puzzle found.');
       else if (count === 0 || count === 2) {
@@ -200,10 +203,46 @@ document.querySelector('#toggle-notes')!.addEventListener('click', () => {
   updateNotes();
 });
 
+function startRating() {
+  const jigs = currentJigs;
+  ratingWorker?.terminate();
+  const rating = new Worker(new URL('./difficulty.worker.ts', import.meta.url), {type:'module'});
+  ratingWorker = rating;
+  const ratingView = document.querySelector<HTMLElement>('#difficulty-result')!;
+  ratingView.textContent = 'Calculating difficulty…';
+  rating.onmessage = (event: MessageEvent<{error?:string;score:number;tally:Tally[]}>) => {
+    if (ratingWorker !== rating) return;
+    if (event.data.error) ratingView.textContent = 'Difficulty unavailable: ' + event.data.error;
+    else renderRating(ratingView,event.data.score,event.data.tally);
+    rating.terminate(); ratingWorker=undefined;
+  };
+  rating.onerror = () => { if(ratingWorker === rating) {ratingView.textContent='Difficulty calculation failed.';rating.terminate();ratingWorker=undefined;} };
+  rating.postMessage({jigs,size});
+}
+
+function handleVerification(count?: number) {
+  // A cancelled recheck does not invalidate an existing proof for this same puzzle.
+  if (count === undefined && verificationCount === 1) return;
+  const previous = verificationCount;
+  verificationCount = count;
+  if (count === 1) {
+    solverView.setVerifiedUnique(true);
+    if (previous !== 1) startRating();
+  } else {
+    ratingWorker?.terminate(); ratingWorker = undefined;
+    const message = count === 2 ? 'This puzzle is not unique. Difficulty and walkthrough are unavailable.' : count === 0 ? 'This puzzle has no solution. Difficulty and walkthrough are unavailable.' : 'Uniqueness is unverified. Difficulty and walkthrough are unavailable until a unique solution is confirmed.';
+    document.querySelector('#difficulty-result')!.textContent = message;
+    solverView.setVerifiedUnique(false, message);
+  }
+}
+
 function generate() {
   const grid = generateSolution(size);
   const jigs = createJigs(grid);
   currentJigs = jigs;
+  verificationCount = undefined;
+  ratingWorker?.terminate(); ratingWorker = undefined;
+  document.querySelector('#difficulty-result')!.textContent = 'Waiting for a verified unique solution before calculating difficulty.';
   solverView.reset(jigs, size);
   startUniquenessCheck();
   renderBoard(document.querySelector('#solution')!, grid);
@@ -239,30 +278,13 @@ function generate() {
   document.querySelector('.jig-card .badge')!.textContent = jigs.length + ' jigs';
   document.querySelector('.guide-note')!.textContent = 'The same rule applies vertically to ∧ and v. Jigs stay within each ' + (size === 6 ? '3-row × 2-column' : '3×3') + ' region.';
   document.querySelector('.bottom-line > span')!.textContent = size + ' regions · ' + jigs.length + ' jigs';
-  ratingWorker?.terminate();
-  const rating = new Worker(new URL('./difficulty.worker.ts', import.meta.url), {type:'module'});
-  ratingWorker = rating;
-  const ratingView = document.querySelector<HTMLElement>('#difficulty-result')!;
-  ratingView.textContent = 'Calculating difficulty…';
-  rating.onmessage = (event: MessageEvent<{error?:string;score:number;tally:Tally[]}>) => {
-    if (ratingWorker !== rating) return;
-    if (event.data.error) ratingView.textContent = 'Difficulty unavailable: ' + event.data.error;
-    else renderRating(ratingView,event.data.score,event.data.tally);
-    rating.terminate(); ratingWorker=undefined;
-  };
-  rating.onerror = () => { if(ratingWorker === rating) {ratingView.textContent='Difficulty calculation failed.';rating.terminate();ratingWorker=undefined;} };
-  rating.postMessage({jigs,size});
   generation++;
   document.querySelector('#status')!.textContent = `Puzzle ${String(generation).padStart(2, '0')} · Generated together, connected by logic.`;
 }
 document.querySelector('#grid-type')!.addEventListener('change', () => {
   endUniqueSearch('Search stopped to change grid type.');
   size = Number(document.querySelector<HTMLSelectElement>('#grid-type')!.value);
-  generate();
-});
-document.querySelector('#generate')!.addEventListener('click', () => {
-  endUniqueSearch('Search stopped to generate a new puzzle.');
-  generate();
+  startUniqueGeneration();
 });
 async function copyString(value: string, statusId: string) {
   const copiedGeneration = generation;
@@ -292,4 +314,4 @@ document.querySelector('#copy-puzzle')!.addEventListener('click', () => {
 document.querySelector('#copy-solution')!.addEventListener('click', () => {
   void copyString(solutionString, '#solution-copy-status');
 });
-generate();
+startUniqueGeneration();

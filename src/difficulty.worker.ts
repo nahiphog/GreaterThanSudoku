@@ -1,5 +1,7 @@
-import { ratePuzzle } from './difficulty';
+import { rateUniquePuzzle } from './difficulty';
 self.onmessage=event=>{
-  try { self.postMessage(ratePuzzle(event.data.jigs,event.data.size)); }
-  catch(error) { self.postMessage({error:error instanceof Error?error.message:'Rating failed.'}); }
+  try {
+    const result = rateUniquePuzzle(event.data.jigs,event.data.size);
+    self.postMessage(result.rating ?? {error:'Difficulty is unavailable because the puzzle does not have a unique solution.'});
+  } catch(error) { self.postMessage({error:error instanceof Error?error.message:'Rating failed.'}); }
 };

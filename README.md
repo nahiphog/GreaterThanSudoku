@@ -1,6 +1,6 @@
 # Greater than Sudoku
 
-A TypeScript Sudoku generator built with Vite. Click **Generate** to replace both grids with a fresh completed Sudoku and its matching number-free jig puzzle.
+A TypeScript Sudoku generator built with Vite. Click **Generate** to search for a fresh puzzle with a verified unique solution. The previous single-attempt Generate button has been removed.
 
 Normal sudoku rules apply. The jigs indicate whether adjacent cells are greater than or less than each other. The point faces the smaller number. Comparisons appear only within each 3×3 box: 54 horizontal + 54 vertical = 108 jigs.
 
@@ -52,15 +52,15 @@ Header links open the maker and **Simulation difficulty** (`#simulation`, compat
 
 ## Difficulty ratings
 
-Every generated puzzle is rated in a background worker by solving from local notes. The score sums the imported sudokUI catalog's per-technique scores. Each attempted backtracking guess—including failed guesses—adds **10,000**, so one fallback search can contribute many such penalties. Deterministic propagation inside that search is part of the backtracking operation, not a separate rated logical step. Local jig deductions have score 0. The technique tally includes use counts, per-use scores, and subtotals, sorted by ascending score.
+Only a puzzle with a verified unique solution is rated in a background worker by solving from local notes. Rating and walkthrough workers also enforce this prerequisite. Non-unique, unsatisfiable, or unverified puzzles have no rating and cannot start the walkthrough. The score sums the imported sudokUI catalog's per-technique scores. Each attempted backtracking guess—including failed guesses—adds **10,000**, so one fallback search can contribute many such penalties. Deterministic propagation inside that search is part of the backtracking operation, not a separate rated logical step. Local jig deductions have score 0. The visible technique table has exactly two columns: **Techniques** and **Steps**. Each row lists all matching walkthrough step numbers, with rows sorted by ascending technique score. Step 0 is the initial local notes and is not a deduction. The backtracking row points to the final completion frame; its internal guessed branches still each contribute 10,000 to the overall rating.
 
 Ratings describe the deterministic path to **one completion**, not a uniqueness proof or a guarantee of human difficulty. The 9×9 engine uses the imported advanced finders. The 6×6 engine uses size-aware jig comparisons, naked/hidden singles, locked candidates, and naked pairs, followed by search only if they stall. Scores across grid sizes therefore use different available technique sets.
 
 ## Simulation difficulty
 
-Choose trials (1, 10, **100 default**, 1000, 10000, 100000, 1000000), grid size (**9×9 default** or 6×6), and minimum displayed score (0 default, 500, 1000, 2000, 3000, 10000, 10000000). Each trial generates and rates one random puzzle, whether unique or not. The threshold is inclusive.
+Choose trials (1, 10, **100 default**, 1000, 10000, 100000, 1000000), grid size (**9×9 default** or 6×6), and minimum displayed score (0 default, 500, 1000, 2000, 3000, 10000, 10000000). Each trial generates one random puzzle and verifies uniqueness. Only unique puzzles are rated; all others are counted as skipped. The threshold is inclusive.
 
-Progress shows completed trials, matching puzzles, elapsed time, mean, minimum and maximum ratings, and a combined technique tally. Matches show the jig grid, its 144-character (9×9) or 60-character (6×6) string, and its individual tally. Ten matches are rendered per page; other matches are kept in browser IndexedDB for the current run. Starting a new run or leaving/reloading the website clears that temporary run storage. Browser storage failures stop the run explicitly and leave already reported results available. Large runs are cancellable; a cancelled in-progress trial is not counted as completed. Normal hash navigation preserves an active simulation.
+Progress shows completed trials, unique puzzles rated, skipped puzzles, matching puzzles, and elapsed time. Mean, minimum and maximum ratings use only the verified unique puzzles; there is no rating assigned to skipped puzzles. Matches show the jig grid, its 144-character (9×9) or 60-character (6×6) string, and its individual tally. Ten matches are rendered per page; other matches are kept in browser IndexedDB for the current run. Starting a new run or leaving/reloading the website clears that temporary run storage. Browser storage failures stop the run explicitly and leave already reported results available. Large runs are cancellable; a cancelled in-progress trial is not counted as completed. Normal hash navigation preserves an active simulation.
 
 ## Candidate notes
 
@@ -82,7 +82,7 @@ Only when no enabled logical technique or jig deduction can progress does backtr
 
 The walkthrough also has **Check uniqueness — backtracking only**, a separate optional verifier for both grid sizes. It starts from an empty grid and tests digits against assigned row, column, region, and adjacent jig values only; it never reads local notes, logical deductions, the displayed solution, or the current walkthrough step. It exhausts the search to establish zero or one solution and stops at two to establish non-uniqueness. The result includes elapsed time. **Cancel backtracking check** leaves uniqueness undetermined; generating a puzzle or changing grid size cancels and clears this independent check. Its work does not affect the difficulty rating or the existing logic-first checker.
 
-**Generate until unique** repeatedly generates fresh puzzles and runs the logic-first uniqueness checker until one is confirmed unique. The displayed puzzle is updated each attempt and the successful puzzle stays on screen. A live status shows attempts started and total elapsed time, including generation and all checks. **Stop searching** cancels the current check and preserves the final totals. **Generate** ends the search and creates a normal puzzle; a checker failure stops the search with its error instead of retrying indefinitely.
+**Generate** repeatedly generates fresh puzzles and runs the logic-first uniqueness checker until one is confirmed unique. The displayed puzzle is updated each attempt and the successful puzzle stays on screen. A live status shows attempts started and total elapsed time, including generation and all checks. **Stop searching** cancels the current check and preserves the final totals. The initial page load and grid-size changes also start this unique-puzzle search. A checker failure stops the search with its error instead of retrying indefinitely.
 
 Each generated jig puzzle is checked in its own background worker, starting with local jig notes and the same imported sudokUI techniques as the step-by-step solver. It receives only the jigs and computes its own notes; it never reads the displayed solution. Classic uniqueness techniques are excluded because the checker must not assume the result it is trying to prove. If logical deductions fill the grid, they establish a unique completion without backtracking.
 
@@ -91,6 +91,10 @@ Only if logic stalls does backtracking explore the remaining possibilities, reta
 ## GitHub Pages deployment
 
 `.github/workflows/deploy.yml` installs locked dependencies with `npm ci`, runs tests and the TypeScript/production build, then publishes `dist/` using the official GitHub Pages actions. Pushes to `main` deploy automatically; manual runs are also supported. Set the repository's Pages source to **GitHub Actions**. YAML is the workflow format, not a runtime dependency.
+
+## Temporarily disabled techniques
+
+The shared logical order excludes **3D Medusa, Finned Jellyfish, Grouped Nice Loop, Aligned Pair Exclusion, ALS-XY-Chain, Digit Forcing Chain, and Nishio Forcing Chain**. This applies to logic-first uniqueness checks, ratings, walkthroughs, and simulations; the imported implementations remain available in the vendor source for later re-enabling.
 
 ## Imported solving techniques
 

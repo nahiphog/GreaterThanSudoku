@@ -1,6 +1,6 @@
 import type { Jig } from './sudoku';
 
-export function createBacktrackingCheck(section: HTMLElement) {
+export function createBacktrackingCheck(section: HTMLElement, onResult: (count:number)=>void = () => {}) {
   const container = document.createElement('div');
   container.className = 'backtracking-check';
   container.innerHTML = '<button type="button" id="check-backtracking">Check uniqueness — backtracking only</button><p id="backtracking-status" role="status" aria-live="polite">Independent check from an empty grid, without local notes or logical techniques.</p>';
@@ -22,6 +22,7 @@ export function createBacktrackingCheck(section: HTMLElement) {
       status.textContent = 'Checking from an empty grid with backtracking only…';
       active.onmessage = (event: MessageEvent<{ count?: number; error?: string }>) => {
         if (worker !== active) return;
+        if (!event.data.error && event.data.count !== undefined) onResult(event.data.count);
         finish(event.data.error ?? (event.data.count === 0 ? 'No solution — backtracking exhausted all possibilities.' : event.data.count === 1 ? 'Unique solution — backtracking found exactly one valid completion.' : 'Not unique — backtracking found at least two valid completions.'));
       };
       active.onerror = () => { if (worker === active) finish('The backtracking-only check failed. Please try again.'); };
