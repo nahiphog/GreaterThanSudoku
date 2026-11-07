@@ -1,4 +1,6 @@
 import './style.css';
+import { initCustomBuild } from './custom-build';
+import { copyPuzzleImage } from './puzzle-image';
 import { initVerify } from './verify';
 import { initNavigation, navigate } from './navigation';
 import { renderRating } from './rating-view';
@@ -9,7 +11,7 @@ import { encodeCompactPuzzle } from './compact';
 import { createJigs, generateSolution, type Grid, type Jig } from './sudoku';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="site-header"><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><nav aria-label="Main navigation"><a href="/GreaterThanSudoku/generate/" data-page="generate">Generate</a><a href="/GreaterThanSudoku/simulation/" data-page="simulation">Simulation difficulty</a><a href="/GreaterThanSudoku/verify/" data-page="verify">Verify</a><button id="about-open" type="button">About</button></nav></header>
+  <header class="site-header"><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><nav aria-label="Main navigation"><a href="/GreaterThanSudoku/generate/" data-page="generate">Generate</a><a href="/GreaterThanSudoku/simulation/" data-page="simulation">Simulation difficulty</a><a href="/GreaterThanSudoku/verify/" data-page="verify">Verify</a><a href="/GreaterThanSudoku/custom-build/" data-page="custom-build">Custom build</a><button id="about-open" type="button">About</button></nav></header>
   <main id="home-page">
     <section class="intro">
       <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label></div>
@@ -18,7 +20,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <article class="puzzle-card"><div class="card-heading"><div><p class="eyebrow">01 / THE STARTING POINT</p><h2>Completed Sudoku</h2></div><span class="badge">81 numbers</span></div><div id="solution" class="board" role="img"></div><p class="card-caption"><span class="caption-dot"></span>Every row, column, and box contains 1–9.</p></article>
       <article class="puzzle-card jig-card"><div class="card-heading"><div><p class="eyebrow">02 / THE TRANSFORMATION</p><h2>Completed jig puzzle</h2></div><span class="badge green">108 jigs</span></div><div id="jigs" class="board" role="img"></div><p class="card-caption"><span class="caption-dot"></span>All the relationships. None of the numbers.</p></article>
     </section>
-    <section class="guide" aria-label="How to read the jigs"><div><p class="eyebrow">FOLLOW THE SIGNS</p><h3>The point faces the smaller number.</h3></div><div class="example"><span>3</span><b>&lt;</b><span>8</span><p>Less than</p></div><div class="example"><span>9</span><b>&gt;</b><span>2</span><p>Greater than</p></div><p class="guide-note">The same rule applies vertically to <strong>∧</strong> and <strong>v</strong>.<br>Jigs stay within each 3×3 box.</p></section>
     <div class="bottom-line"><p id="status" role="status" aria-live="polite"></p><span>9 boxes × 12 jigs = 108 little clues</span></div>
   </main><footer><span>Greater than Sudoku</span><a href="https://github.com/nahiphog/GreaterThanSudoku">Source &amp; GPL-3.0 license</a></footer>
 `;
@@ -37,6 +38,7 @@ initSimulation((grid, step) => {
   requestedStep = step;
 });
 initVerify();
+initCustomBuild();
 const solutionBoard = document.querySelector<HTMLElement>('#solution')!;
 const solutionContent = document.createElement('div');
 solutionContent.id = 'solution-content';
@@ -53,7 +55,7 @@ document.querySelector('#toggle-solution')!.addEventListener('click', () => {
 document.querySelector('#solution')!.insertAdjacentHTML('afterend', '<button id="copy-solution" class="copy-button" type="button">Copy 81-character string</button><p id="solution-copy-status" class="copy-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.setAttribute('role', 'group');
 document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show local jig notes</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
-document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
+document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<div class="copy-actions"><button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><button id="copy-puzzle-image" class="copy-button" type="button">Copy grid as an image</button></div><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
 document.querySelector('#selected-cell')!.insertAdjacentHTML('afterend', '<button id="check-uniqueness" class="copy-button" type="button">Check uniqueness</button><p id="uniqueness-status" class="selection-status" role="status" aria-live="polite"></p>');
 
 const solverView = createSolverView(count => handleVerification(count));
@@ -291,7 +293,6 @@ function displayPuzzle(grid: Grid) {
   solutionCard.querySelector('.badge')!.textContent = size * size + ' numbers';
   solutionCard.querySelector('.card-caption')!.textContent = 'Every row, column, and region contains 1–' + size + '.';
   document.querySelector('.jig-card .badge')!.textContent = jigs.length + ' jigs';
-  document.querySelector('.guide-note')!.textContent = 'The same rule applies vertically to ∧ and v. Jigs stay within each ' + (size === 6 ? '3-row × 2-column' : '3×3') + ' region.';
   document.querySelector('.bottom-line > span')!.textContent = size + ' regions · ' + jigs.length + ' jigs';
   generation++;
   document.querySelector('#status')!.textContent = `Puzzle ${String(generation).padStart(2, '0')} · Generated together, connected by logic.`;
@@ -329,6 +330,11 @@ async function copyString(value: string, statusId: string) {
 }
 document.querySelector('#copy-puzzle')!.addEventListener('click', () => {
   void copyString(puzzleString, '#jig-copy-status');
+});
+document.querySelector('#copy-puzzle-image')!.addEventListener('click', async () => {
+  const status=document.querySelector('#jig-copy-status')!;
+  try {await copyPuzzleImage(puzzleString);status.textContent='Grid image copied as PNG.';}
+  catch {status.textContent='Image clipboard access is unavailable. Please allow clipboard access or try a supported browser.';}
 });
 document.querySelector('#copy-solution')!.addEventListener('click', () => {
   void copyString(solutionString, '#solution-copy-status');

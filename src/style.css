@@ -45,3 +45,17 @@ dialog{max-width:520px;border:1px solid #b8c4b0;border-radius:12px;padding:28px;
 .site-header nav{flex-wrap:wrap}.site-header nav a[aria-current="page"]{font-weight:700;text-decoration-thickness:2px}
 #verify-input{display:block;width:100%;box-sizing:border-box;font:15px monospace;padding:12px;margin:8px 0;border:1px solid #b8c4b0;border-radius:6px}#verify-help,#verify-status{font-size:13px;line-height:1.7}.verify-actions,.simulation-card-actions{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.simulation-card-actions button{font-size:13px;padding:10px 14px}#verify-results .rating-panel{margin-top:24px}#verify-results h2{margin-bottom:18px}.simulation-card>p{font-size:12px;line-height:1.7}
 @media(max-width:640px){#home-page .generate-area label{max-width:calc(100% - 100px);flex:1}#home-page .generate-area .copy-button{padding:10px 14px}.site-header nav{gap:10px}.simulation-card-actions button{width:auto}}
+
+.copy-actions,.custom-controls { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:16px 0; }
+#custom-build-page fieldset { border:1px solid #dce1d8; border-radius:12px; padding:24px; margin-bottom:20px; }
+#custom-build-page textarea { display:block; width:100%; box-sizing:border-box; margin:10px 0; padding:12px; font:14px monospace; }
+.custom-controls label { display:grid; gap:6px; }
+.custom-controls input,.custom-controls select { padding:10px; max-width:180px; }
+#custom-editor { max-width:650px; padding:14px; margin:16px 0; }
+.custom-editor-board { width:100%; }
+.border-toggle { position:absolute; transform:translate(-50%,-50%); width:20px; height:20px; min-width:0; padding:0; border:1px solid #839c84; border-radius:4px; background:#edf0e8; z-index:2; box-shadow:none; }
+.border-toggle.selected { background:#547541; border-color:#294e3e; }
+.border-toggle:focus-visible { outline:3px solid #c18f2c; outline-offset:2px; }
+#custom-puzzle,#custom-solution { max-width:550px; margin:20px 0; }
+#custom-result { margin-top:36px; }
+@media(max-width:600px){#custom-build-page fieldset{padding:10px}.border-toggle{width:16px;height:16px}#custom-editor{padding:8px}}

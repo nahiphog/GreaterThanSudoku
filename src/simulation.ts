@@ -7,12 +7,12 @@ import type { Match } from './simulation.worker';
 
 export function initSimulation(onStep: (grid: number[][], step: number) => void) {
   const main=document.createElement('main');main.id='simulation-page';main.hidden=true;
-  main.innerHTML=`<h1>Simulation difficulty</h1><p>Generate and rate random puzzles. Each trial is checked for uniqueness first. Only verified unique puzzles are rated; other trials are skipped. Ratings use the same solver and scoring as the puzzle maker.</p>
+  main.innerHTML=`<h1>Simulation difficulty</h1>
   <form id="simulation-form" class="simulation-controls"><label>Total trials<select name="trials">${[1,10,100,1000,10000,100000,1000000].map(n=>`<option value="${n}" ${n===100?'selected':''}>${n.toLocaleString()}</option>`).join('')}</select></label>
   <label>Grid type<select name="size"><option value="6">6×6</option><option value="9" selected>9×9</option></select></label>
   <label>Display puzzles rated at least<select name="threshold">${[0,500,1000,2000,3000,10000,10000000].map(n=>`<option value="${n}">${n.toLocaleString()}</option>`).join('')}</select></label>
   <button type="submit">Start simulation</button><button id="simulation-stop" type="button" disabled>Stop</button></form>
-  <p>Jig strings use 144 characters for 9×9 and 60 for 6×6, with 0 for missing comparisons. Matching puzzles appear below, 10 per page, and are stored in this browser for the current run. Large simulations can take a long time; you can stop at any point.</p>
+
   <p id="simulation-status" role="status">Ready.</p><div class="simulation-controls"><button id="simulation-prev">Previous matches</button><span id="simulation-page-count"></span><button id="simulation-next">Next matches</button></div><div id="simulation-results"></div>`;
   document.querySelector('footer')!.before(main);
   const get=<T extends HTMLElement>(id:string)=>main.querySelector<T>('#'+id)!;

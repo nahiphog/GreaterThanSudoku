@@ -9,10 +9,10 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
   section.className = 'solver-section';
   section.innerHTML = `<div class="solver-heading"><div><p class="eyebrow">FOLLOW THE DEDUCTIONS</p><h2>Step-by-step solver</h2></div><button id="solve-steps" type="button">Solve step by step</button></div>
     <p id="solver-status" role="status" aria-live="polite">Start from the local jig notes and follow the logical techniques.</p>
-    <div id="solver-content" data-solver-content hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p class="step-key">Red crossed-out notes are removed in this step and disappear in the next. Highlighted cells changed; bold green notes mark newly placed digits.</p></div></div></div>`;
+    <div id="solver-content" data-solver-content hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p class="step-key">Red crossed-out notes are removed in this step and disappear in the next. Highlighted cells changed. Placed numbers appear immediately at full size.</p></div></div></div>`;
   section.querySelector('.board')!.classList.add('walkthrough-board');
   section.querySelectorAll<HTMLElement>('[id]').forEach(el => { el.id = prefix + el.id; });
-  if (options.host) options.host.append(section); else document.querySelector('.guide')!.before(section);
+  if (options.host) options.host.append(section); else document.querySelector('#home-page > .bottom-line')!.before(section);
   const backtrackingCheck = createBacktrackingCheck(section, onVerified, prefix);
   const get = <T extends HTMLElement>(id: string) => section.querySelector<T>(`#${prefix}${id}`)!;
   let worker: Worker | undefined;

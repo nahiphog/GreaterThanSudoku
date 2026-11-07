@@ -55,9 +55,9 @@ test('eliminated notes are overlaid for one step only without changing solver st
   assert.deepEqual(stepNotes(next,current,0).removed,[]);
   assert.equal(JSON.stringify(current),snapshot);
 });
-test('a placement displays crossed-out alternative notes only on its own step',()=>{
+test('a placement immediately displays the full-size number without notes',()=>{
   const before=frame(0,[2,3]),placed=frame(3,[]),next=frame(3,[]);
-  assert.deepEqual(stepNotes(placed,before,0),{remaining:[3],removed:[2],showNotes:true});
+  assert.deepEqual(stepNotes(placed,before,0),{remaining:[3],removed:[],showNotes:false});
   assert.deepEqual(stepNotes(next,placed,0),{remaining:[3],removed:[],showNotes:false});
 });
 test('initial notes have no cross-outs',()=>{

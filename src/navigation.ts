@@ -1,19 +1,19 @@
 /// <reference types="vite/client" />
-export type Page = 'generate' | 'simulation' | 'verify';
+export type Page = 'generate' | 'simulation' | 'verify' | 'custom-build';
 export const pageUrl = (page:Page) => `${import.meta.env.BASE_URL}${page}/`;
 export function currentPage(): Page {
   const last=location.pathname.replace(/\/+$/,'').split('/').pop();
-  return last==='verify'?'verify':last==='simulation'?'simulation':'generate';
+  return last==='custom-build'?'custom-build':last==='verify'?'verify':last==='simulation'?'simulation':'generate';
 }
 function renderRoute() {
   const page=currentPage();
-  for(const [route,id] of [['generate','home-page'],['simulation','simulation-page'],['verify','verify-page']]) {
+  for(const [route,id] of [['generate','home-page'],['simulation','simulation-page'],['verify','verify-page'],['custom-build','custom-build-page']]) {
     const main=document.getElementById(id);if(main)main.hidden=page!==route;
   }
   document.querySelectorAll<HTMLAnchorElement>('a[data-page]').forEach(link=>{
     if(link.dataset.page===page)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
   });
-  document.title=`${page==='generate'?'Generate':page==='verify'?'Verify':'Simulation difficulty'} — Greater than Sudoku`;
+  document.title=`${page==='generate'?'Generate':page==='verify'?'Verify':page==='custom-build'?'Custom build':'Simulation difficulty'} — Greater than Sudoku`;
   window.dispatchEvent(new CustomEvent('pagechange',{detail:page}));
 }
 export function navigate(page:Page) {

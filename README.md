@@ -80,7 +80,7 @@ Step numbers in the **Steps** column are clickable and keyboard-accessible. Clic
 
 **Solve step by step** starts a separate solving view from the empty jig grid and local notes. Use **Next**, **Previous**, or the step selector to inspect each state. Each step names its technique, explains the deduction, lists placements and candidate removals (including peer removals), and highlights changed cells on the grid after the step. The original jig grid, local notes, and export remain available separately.
 
-Candidates removed in the current step remain visible crossed out in red, then disappear in the following step. This is a visual overlay only: solver candidate state already reflects the elimination. Newly placed values with removed alternatives are shown among the notes for that step and become full-size values on the following step.
+Candidates removed in the current step remain visible crossed out in red, then disappear in the following step. This is a visual overlay only: solver candidate state already reflects the elimination. Placed numbers appear immediately at full size, without candidate notes in that cell.
 
 The solver alternates jig inequality deductions with the enabled imported sudokUI techniques in their normal order: singles, intersections, subsets, fish, wings, chains, coloring, ALS, and the other enabled logical finders. Classic uniqueness techniques are excluded: a classic digit-swap argument need not preserve variant jigs. The engine receives only jigs and initial local notes, never the displayed solution or uniqueness result.
 
@@ -115,3 +115,9 @@ The imported solver entry point is type-checked during the build and exercised b
 ## License
 
 GPL-3.0. See `LICENSE` and `NOTICE` for the upstream source, revision, and attribution.
+
+## Custom build
+
+Open `/GreaterThanSudoku/custom-build/` to select jig positions on a 6×6 or 9×9 grid, including borders between regions. Choose positions manually, place an exact number randomly, or use the standard region layout. Import/export uses 60 or 144 binary characters in the same edge order as puzzle strings. Choose a difficulty range, then Build now searches until a unique puzzle is solved without backtracking, matching the EitherOrSudoku Custom build acceptance rule. Halt build cancels the worker immediately. Results show attempts, elapsed time, difficulty, step links, completed grid, and puzzle-string/PNG copying.
+
+The Generate page also offers Copy grid as an image. The browser favicon uses the existing green greater-than brand mark.
