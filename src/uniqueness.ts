@@ -10,7 +10,15 @@ export type UniquenessResult = { count: 0 | 1 | 2; solutions: number[][]; logicS
 export function checkUniqueness(jigs: Jig[], progress: (message: string) => void = () => {}, size = 9): UniquenessResult {
   if (size === 6) {
     let last: SolveFrame | undefined;
-    const logic = solveSix(jigs, frame => { last = frame; }, false);
+    let logic;
+    try {
+      logic = solveSix(jigs, frame => { last = frame; }, false);
+    } catch (error) {
+      if (error instanceof Error && ['The jigs contain a contradictory cycle.', 'Contradictory candidates.'].includes(error.message)) {
+        return { count: 0, solutions: [], logicSteps: 0, usedBacktracking: false };
+      }
+      throw error;
+    }
     if (!last) throw new Error("Missing logical state");
     if (last.values.every(Boolean)) return { count: 1, solutions: [last.values], logicSteps: logic.logicSteps, usedBacktracking: false };
     progress(`After ${logic.logicSteps} logical steps, searching the remaining possibilities…`);

@@ -52,7 +52,7 @@ Header links open **Generate**, **Simulation difficulty**, and **Verify** at `/G
 
 ## Verify a puzzle string
 
-Paste a 60-character or 144-character string on **Verify**. Whitespace is ignored and legacy `^` is accepted as `∧`. Invalid lengths or symbols are rejected. Independent backtracking counts up to two solutions; only a verified unique puzzle displays its completed grid, difficulty rating, and interactive walkthrough. Editing the input clears stale results; verification and rating can be cancelled.
+Paste a 60-character or 144-character string on **Verify**, or use **Paste clipboard**. **Clear input** empties the field and clears any results or active work. Whitespace is ignored and legacy `^` is accepted as `∧`. Invalid lengths or symbols are rejected. Verification uses the same local jig notes and logical techniques as Generate, with backtracking on the remaining possibilities only if logic stalls. The result includes the logical step count, whether backtracking was needed, and elapsed time. Only a verified unique puzzle displays its completed grid, difficulty rating, and interactive walkthrough. Editing the input clears stale results; verification and rating can be cancelled.
 
 ## Difficulty ratings
 

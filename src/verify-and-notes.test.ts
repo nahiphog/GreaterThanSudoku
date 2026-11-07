@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { decodeCompactPuzzle, encodeCompactPuzzle } from './compact';
 import { generateSolution, createJigs } from './sudoku';
 import { checkBacktrackingUniqueness } from './backtracking-uniqueness';
+import { checkUniqueness } from './uniqueness';
 import { stepNotes } from './step-notes';
 import type { SolveFrame } from './logical-solver';
 
@@ -16,6 +17,9 @@ for (const size of [6,9]) {
   test(`verification parser supports non-unique and contradictory ${size}x${size} puzzles`,()=>{
     const blank=decodeCompactPuzzle('0'.repeat(2*size*(size-1)));
     assert.equal(checkBacktrackingUniqueness(blank.jigs,size).count,2);
+    const blankResult=checkUniqueness(blank.jigs,undefined,size);
+    assert.equal(blankResult.count,2);
+    assert.equal(blankResult.usedBacktracking,true);
     const cycle=decodeCompactPuzzle(encodeCompactPuzzle([
       {row:0,col:0,direction:'horizontal',symbol:'<'},
       {row:0,col:1,direction:'vertical',symbol:'∧'},
@@ -23,6 +27,18 @@ for (const size of [6,9]) {
       {row:0,col:0,direction:'vertical',symbol:'v'},
     ],size));
     assert.equal(checkBacktrackingUniqueness(cycle.jigs,size).count,0);
+    const cycleResult=checkUniqueness(cycle.jigs,undefined,size);
+    assert.equal(cycleResult.count,0);
+    assert.equal(cycleResult.usedBacktracking,false);
+  });
+  test(`Verify's shared logic-first checker solves a unique ${size}x${size} string without search`,()=>{
+    const grid=Array.from({length:size},(_,r)=>Array.from({length:size},(_,c)=>(r*(size/3)+Math.floor(r/3)+c)%size+1));
+    const parsed=decodeCompactPuzzle(encodeCompactPuzzle(createJigs(grid),size));
+    const result=checkUniqueness(parsed.jigs,undefined,parsed.size);
+    assert.equal(result.count,1);
+    assert.equal(result.usedBacktracking,false);
+    assert.ok(result.logicSteps>0);
+    assert.deepEqual(result.solutions,[grid.flat()]);
   });
 }
 test('invalid strings reject incorrect length, characters, and jig orientation',()=>{
