@@ -4,32 +4,32 @@ import type { Jig } from './sudoku';
  * Counts distinct cells, not just the length of a single inequality chain.
  * These are pencil marks from jig ordering, not a full-solution search.
  */
-export function jigCandidates(jigs: Jig[]): number[][] {
-  const less = Array.from({ length: 81 }, () => Array<boolean>(81).fill(false));
+export function jigCandidates(jigs: Jig[], size = 9): number[][] {
+  const less = Array.from({ length: size * size }, () => Array<boolean>(size * size).fill(false));
   for (const jig of jigs) {
-    const a = jig.row * 9 + jig.col;
-    const b = a + (jig.direction === 'horizontal' ? 1 : 9);
+    const a = jig.row * size + jig.col;
+    const b = a + (jig.direction === 'horizontal' ? 1 : size);
     const ascending = jig.symbol === '<' || jig.symbol === '∧';
     less[ascending ? a : b][ascending ? b : a] = true;
   }
-  for (let via = 0; via < 81; via++) {
-    for (let from = 0; from < 81; from++) {
+  for (let via = 0; via < size * size; via++) {
+    for (let from = 0; from < size * size; from++) {
       if (!less[from][via]) continue;
-      for (let to = 0; to < 81; to++) less[from][to] ||= less[via][to];
+      for (let to = 0; to < size * size; to++) less[from][to] ||= less[via][to];
     }
   }
   if (less.some((row, i) => row[i])) throw new Error('The jigs contain a contradictory cycle.');
-  return Array.from({ length: 81 }, (_, cell) => {
-    const row = Math.floor(cell / 9);
-    const col = cell % 9;
+  return Array.from({ length: size * size }, (_, cell) => {
+    const row = Math.floor(cell / size);
+    const col = cell % size;
     const units = [
-      Array.from({ length: 9 }, (_, i) => row * 9 + i),
-      Array.from({ length: 9 }, (_, i) => i * 9 + col),
-      Array.from({ length: 9 }, (_, i) => (Math.floor(row / 3) * 3 + Math.floor(i / 3)) * 9 + Math.floor(col / 3) * 3 + i % 3),
+      Array.from({ length: size }, (_, i) => row * size + i),
+      Array.from({ length: size }, (_, i) => i * size + col),
+      Array.from({ length: size }, (_, i) => (Math.floor(row / 3) * 3 + Math.floor(i / (size / 3))) * size + Math.floor(col / (size / 3)) * (size / 3) + i % (size / 3)),
     ];
     const smaller = Math.max(...units.map(unit => unit.filter(peer => less[peer][cell]).length));
     const larger = Math.max(...units.map(unit => unit.filter(peer => less[cell][peer]).length));
-    return Array.from({ length: Math.max(0, 9 - smaller - larger) }, (_, i) => smaller + i + 1);
+    return Array.from({ length: Math.max(0, size - smaller - larger) }, (_, i) => smaller + i + 1);
   });
 }
 

@@ -60,6 +60,7 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
   if (!valid(state)) throw new Error('The local notes contradict the puzzle rules.');
   record('Local jig notes', 'Start with an empty grid and candidates from local jig deductions only.', 'initial');
   let logicSteps = 0;
+  let bruteForceUses = 0;
   while (state.values.some(v => !v)) {
     // With no givens or jigs, digit symmetry precludes any forced deduction.
     if (!jigs.length) break;
@@ -81,8 +82,8 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
     logicSteps++;
     if (logicSteps > 810) throw new Error('Logical step limit exceeded.');
   }
-  if (!state.values.some(v => !v)) return { usedBacktracking: false, logicSteps };
-  if (!allowBacktracking) return { usedBacktracking: false, logicSteps };
+  if (!state.values.some(v => !v)) return { usedBacktracking: false, logicSteps, bruteForceUses };
+  if (!allowBacktracking) return { usedBacktracking: false, logicSteps, bruteForceUses };
   progress('Logical techniques stalled. Trying backtracking as a last resort…');
   // Search begins only after all applicable imported techniques have stalled.
   function search(g: Grid): Grid | null {
@@ -98,6 +99,7 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
     for (let i = 0; i < 81; i++) if (!g.values[i] && (cell < 0 || digitsOf(g.cands[i]).length < digitsOf(g.cands[cell]).length)) cell = i;
     if (cell < 0) return g;
     for (const digit of digitsOf(g.cands[cell])) {
+      bruteForceUses++;
       const branch = cloneGrid(g);
       setValue(branch, cell, digit);
       const result = search(branch);
@@ -110,5 +112,5 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
   if (!result) throw new Error('No completion was found from the logical state.');
   state.values.set(result.values); state.cands.set(result.cands);
   record('Backtracking completion — last resort', 'The enabled logical techniques found no further deduction. A search supplied one valid completion. These placements are search results, not proven logical deductions; other completions may exist.', 'backtracking', before);
-  return { usedBacktracking: true, logicSteps };
+  return { usedBacktracking: true, logicSteps, bruteForceUses };
 }

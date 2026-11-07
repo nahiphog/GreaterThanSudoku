@@ -1,14 +1,17 @@
 import './style.css';
+import { renderRating } from './rating-view';
+import { initSimulation } from './simulation';
+import type { Tally } from './difficulty';
 import { createSolverView } from './solver-view';
 import { encodeCompactPuzzle } from './compact';
 import { createJigs, generateSolution, type Grid, type Jig } from './sudoku';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><span class="header-note">A different way to think inside the box.</span></header>
-  <main>
+  <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><nav aria-label="Main navigation"><a href="#home">Puzzle maker</a><a href="#simulation">Simulation difficulty</a><button id="about-open" type="button">About</button></nav></header>
+  <main id="home-page">
     <section class="intro">
-      <div><p class="eyebrow">THE SUDOKU LAB / 01</p><h1>A little less.<br>A little <em>greater.</em></h1><p class="description">Normal sudoku rules apply. The jigs indicate whether adjacent cells are greater than or less than each other.</p></div>
-      <div class="generate-area"><button id="generate" type="button"><span aria-hidden="true">↻</span> Generate</button><p>A fresh grid. A new perspective.</p></div>
+      <div><h1>Greater Than Sudoku</h1><p class="description">Normal sudoku rules apply. The jigs indicate whether adjacent cells are greater than or less than each other.</p></div>
+      <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label><button id="generate" type="button"><span aria-hidden="true">↻</span> Generate</button><p>A fresh grid. A new perspective.</p></div>
     </section>
     <section class="puzzles" aria-label="Generated Sudoku puzzles">
       <article class="puzzle-card"><div class="card-heading"><div><p class="eyebrow">01 / THE STARTING POINT</p><h2>Completed Sudoku</h2></div><span class="badge">81 numbers</span></div><div id="solution" class="board" role="img"></div><p class="card-caption"><span class="caption-dot"></span>Every row, column, and box contains 1–9.</p></article>
@@ -19,6 +22,12 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </main><footer><span>Greater than Sudoku</span><a href="https://github.com/nahiphog/GreaterThanSudoku">Source &amp; GPL-3.0 license</a></footer>
 `;
 
+document.body.insertAdjacentHTML('beforeend', '<dialog id="about-dialog"><p>Greater Than Sudoku: Normal sudoku rules apply. The jigs indicate whether adjacent cells are greater than or less than each other.</p><form method="dialog"><button>Close</button></form></dialog>');
+document.querySelector('#about-open')!.addEventListener('click', () => document.querySelector<HTMLDialogElement>('#about-dialog')!.showModal());
+const solutionCard = document.querySelector<HTMLElement>('.puzzle-card')!;
+solutionCard.classList.add('solution-card');
+document.querySelector('#home-page')!.append(solutionCard);
+initSimulation();
 const solutionBoard = document.querySelector<HTMLElement>('#solution')!;
 const solutionContent = document.createElement('div');
 solutionContent.id = 'solution-content';
@@ -42,11 +51,13 @@ const solverView = createSolverView();
 document.querySelector('.generate-area')!.insertAdjacentHTML('beforeend', '<button id="generate-unique" class="copy-button" type="button">Generate until unique</button><p id="unique-search-status" role="status" aria-live="polite"></p>');
 
 function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
+  const size = grid.length, width = size / 3;
+  element.dataset.size = String(size);
   element.replaceChildren();
-  for (let row = 0; row < 9; row++) {
-    for (let col = 0; col < 9; col++) {
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
       const cell = document.createElement(jigs ? 'button' : 'span');
-      cell.className = `cell${col % 3 === 2 && col < 8 ? ' box-right' : ''}${row % 3 === 2 && row < 8 ? ' box-bottom' : ''}`;
+      cell.className = `cell${col % width === width - 1 && col < size - 1 ? ' box-right' : ''}${row % 3 === 2 && row < size - 1 ? ' box-bottom' : ''}`;
       if (jigs) {
         (cell as HTMLButtonElement).type = 'button';
         cell.setAttribute('aria-label', `R${row + 1}C${col + 1}`);
@@ -67,14 +78,17 @@ function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
     const mark = document.createElement('span');
     mark.className = `jig ${jig.direction}`;
     mark.textContent = jig.symbol;
-    mark.style.left = `${(jig.col + (jig.direction === 'horizontal' ? 1 : 0.5)) / 9 * 100}%`;
-    mark.style.top = `${(jig.row + (jig.direction === 'vertical' ? 1 : 0.5)) / 9 * 100}%`;
+    mark.style.left = `${(jig.col + (jig.direction === 'horizontal' ? 1 : 0.5)) / size * 100}%`;
+    mark.style.top = `${(jig.row + (jig.direction === 'vertical' ? 1 : 0.5)) / size * 100}%`;
     mark.setAttribute('aria-hidden', 'true');
     element.append(mark);
   }
   element.setAttribute('aria-label', jigs ? 'Completed jig puzzle. Select a cell to identify its row and column.' : `Completed Sudoku. ${grid.map((row, i) => `Row ${i + 1}: ${row.join(', ')}`).join('. ')}`);
 }
 
+let size = 9;
+let ratingWorker: Worker | undefined;
+document.querySelector('.jig-card')!.insertAdjacentHTML('afterend', '<section class="rating-panel"><div id="difficulty-result" role="status"></div><p>Rating = logical technique scores + 10,000 per guessed backtracking branch (including failed guesses). Jig deductions score 0. This rates one completion, not the uniqueness proof. 6×6 uses singles, locked candidates and pairs; 9×9 also uses imported advanced techniques.</p></section>');
 let generation = 0;
 let puzzleString = '';
 let solutionString = '';
@@ -152,7 +166,7 @@ function startUniquenessCheck() {
     finish(event.data.error ?? ((event.data.count === 0 ? 'No solution.' : event.data.count === 1 ? 'Unique solution — exactly one valid completion.' : 'Not unique — at least two valid completions.') + ' ' + method), event.data.error ? undefined : event.data.count);
   };
   worker.onerror = () => finish('The uniqueness check failed. Please try again.');
-  worker.postMessage(currentJigs);
+  worker.postMessage({jigs:currentJigs,size});
 }
 document.querySelector('#check-uniqueness')!.addEventListener('click', () => {
   if (uniquenessWorker) {
@@ -163,13 +177,13 @@ document.querySelector('#check-uniqueness')!.addEventListener('click', () => {
 function updateNotes() {
   document.querySelectorAll<HTMLButtonElement>('#jigs .cell').forEach((cell, index) => {
     cell.replaceChildren();
-    const coordinate = `R${Math.floor(index / 9) + 1}C${index % 9 + 1}`;
+    const coordinate = `R${Math.floor(index / size) + 1}C${index % size + 1}`;
     cell.setAttribute('aria-label', showNotes && candidates.length ? `${coordinate}, candidates: ${candidates[index].join(', ')}` : coordinate);
     if (!showNotes || !candidates.length) return;
     const notes = document.createElement('span');
     notes.className = 'candidate-notes';
     notes.setAttribute('aria-hidden', 'true');
-    for (let digit = 1; digit <= 9; digit++) {
+    for (let digit = 1; digit <= size; digit++) {
       const mark = document.createElement('span');
       mark.textContent = candidates[index].includes(digit) ? String(digit) : '';
       notes.append(mark);
@@ -187,10 +201,10 @@ document.querySelector('#toggle-notes')!.addEventListener('click', () => {
 });
 
 function generate() {
-  const grid = generateSolution();
+  const grid = generateSolution(size);
   const jigs = createJigs(grid);
   currentJigs = jigs;
-  solverView.reset(jigs);
+  solverView.reset(jigs, size);
   startUniquenessCheck();
   renderBoard(document.querySelector('#solution')!, grid);
   renderBoard(document.querySelector('#jigs')!, grid, jigs);
@@ -212,16 +226,40 @@ function generate() {
     worker.terminate();
     updateNotes();
   };
-  worker.postMessage(jigs);
+  worker.postMessage({jigs,size});
   updateNotes();
-  puzzleString = encodeCompactPuzzle(jigs);
+  puzzleString = encodeCompactPuzzle(jigs,size);
   solutionString = grid.flat().join('');
   document.querySelector('#jig-copy-status')!.textContent = '';
   document.querySelector('#solution-copy-status')!.textContent = '';
   document.querySelector('#selected-cell')!.textContent = 'Select a cell to see its row and column.';
+  document.querySelector('#copy-solution')!.textContent = 'Copy ' + size * size + '-character string';
+  solutionCard.querySelector('.badge')!.textContent = size * size + ' numbers';
+  solutionCard.querySelector('.card-caption')!.textContent = 'Every row, column, and region contains 1–' + size + '.';
+  document.querySelector('.jig-card .badge')!.textContent = jigs.length + ' jigs';
+  document.querySelector('.guide-note')!.textContent = 'The same rule applies vertically to ∧ and v. Jigs stay within each ' + (size === 6 ? '3-row × 2-column' : '3×3') + ' region.';
+  document.querySelector('.bottom-line > span')!.textContent = size + ' regions · ' + jigs.length + ' jigs';
+  ratingWorker?.terminate();
+  const rating = new Worker(new URL('./difficulty.worker.ts', import.meta.url), {type:'module'});
+  ratingWorker = rating;
+  const ratingView = document.querySelector<HTMLElement>('#difficulty-result')!;
+  ratingView.textContent = 'Calculating difficulty…';
+  rating.onmessage = (event: MessageEvent<{error?:string;score:number;tally:Tally[]}>) => {
+    if (ratingWorker !== rating) return;
+    if (event.data.error) ratingView.textContent = 'Difficulty unavailable: ' + event.data.error;
+    else renderRating(ratingView,event.data.score,event.data.tally);
+    rating.terminate(); ratingWorker=undefined;
+  };
+  rating.onerror = () => { if(ratingWorker === rating) {ratingView.textContent='Difficulty calculation failed.';rating.terminate();ratingWorker=undefined;} };
+  rating.postMessage({jigs,size});
   generation++;
   document.querySelector('#status')!.textContent = `Puzzle ${String(generation).padStart(2, '0')} · Generated together, connected by logic.`;
 }
+document.querySelector('#grid-type')!.addEventListener('change', () => {
+  endUniqueSearch('Search stopped to change grid type.');
+  size = Number(document.querySelector<HTMLSelectElement>('#grid-type')!.value);
+  generate();
+});
 document.querySelector('#generate')!.addEventListener('click', () => {
   endUniqueSearch('Search stopped to generate a new puzzle.');
   generate();

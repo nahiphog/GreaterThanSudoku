@@ -33,11 +33,40 @@ Copy buttons sit directly below each grid. The jig string is not displayed; the 
 
 Click any cell in the completed jig puzzle to highlight it and show its coordinates, for example `Selected cell: R5C7`. Cells also support keyboard focus and Enter/Space activation. Generating a new puzzle clears the selection.
 
+## Grid formats and navigation
+
+The maker defaults to **9×9** (nine 3×3 regions) and also supports **6×6** (six regions of three rows by two columns), matching the requested layout:
+
+```
+112233
+112233
+112233
+445566
+445566
+445566
+```
+
+The 6×6 format has 36 values and 42 jigs. Its compact string contains 60 positions: 30 horizontal edges in row order followed by 30 vertical edges in column order, using 0 at missing boundaries. The 9×9 string remains 144 characters. Notes, selection, copying, uniqueness, automatic unique generation, and the step solver follow the selected size. The completed Sudoku is at the bottom and remains collapsed by default.
+
+Header links open the maker and **Simulation difficulty** (`#simulation`, compatible with GitHub Pages). **About** opens the requested rules text in a keyboard-accessible modal.
+
+## Difficulty ratings
+
+Every generated puzzle is rated in a background worker by solving from local notes. The score sums the imported sudokUI catalog's per-technique scores. Each attempted backtracking guess—including failed guesses—adds **10,000**, so one fallback search can contribute many such penalties. Deterministic propagation inside that search is part of the backtracking operation, not a separate rated logical step. Local jig deductions have score 0. The technique tally includes use counts, per-use scores, and subtotals, sorted by ascending score.
+
+Ratings describe the deterministic path to **one completion**, not a uniqueness proof or a guarantee of human difficulty. The 9×9 engine uses the imported advanced finders. The 6×6 engine uses size-aware jig comparisons, naked/hidden singles, locked candidates, and naked pairs, followed by search only if they stall. Scores across grid sizes therefore use different available technique sets.
+
+## Simulation difficulty
+
+Choose trials (1, 10, **100 default**, 1000, 10000, 100000, 1000000), grid size (**9×9 default** or 6×6), and minimum displayed score (0 default, 500, 1000, 2000, 3000, 10000, 10000000). Each trial generates and rates one random puzzle, whether unique or not. The threshold is inclusive.
+
+Progress shows completed trials, matching puzzles, elapsed time, mean, minimum and maximum ratings, and a combined technique tally. Matches show the jig grid, its 144-character (9×9) or 60-character (6×6) string, and its individual tally. Ten matches are rendered per page; other matches are kept in browser IndexedDB for the current run. Starting a new run or leaving/reloading the website clears that temporary run storage. Browser storage failures stop the run explicitly and leave already reported results available. Large runs are cancellable; a cancelled in-progress trial is not counted as completed. Normal hash navigation preserves an active simulation.
+
 ## Candidate notes
 
 The completed Sudoku starts hidden. **Show completed Sudoku** / **Hide completed Sudoku** expands or collapses the solution and its copy button; the selection persists while generating new puzzles.
 
-**Show local jig notes** / **Hide local jig notes** toggles small candidate digits in all 81 jig cells. The setting persists when generating a new puzzle. Notes use only the jig comparisons and their transitive chains. If a cell has S distinct cells known to be smaller and L distinct cells known to be larger in its box, its notes are S+1 through 9−L. Shared paths are counted once. Notes never use the displayed solution, full-solution search, or the uniqueness result. A separate background worker calculates them.
+**Show local jig notes** / **Hide local jig notes** toggles small candidate digits in all jig cells. The setting persists when generating a new puzzle. Notes use only the jig comparisons and their transitive chains. If a cell has S distinct cells known to be smaller and L distinct cells known to be larger in its box, its notes are S+1 through N−L, where N is the grid size. Shared paths are counted once. Notes never use the displayed solution, full-solution search, or the uniqueness result. A separate background worker calculates them.
 
 These are local candidate bounds, not conventional two-location Snyder marks. A displayed digit is not guaranteed to extend to a full solution. In the supplied example R2C3 retains 1, 2, 3, 4 under local jig deductions, even though full-puzzle search narrows it to 3. Copying still exports only the jig string, and selection works with notes shown or hidden.
 

@@ -13,7 +13,8 @@ export function createSolverView() {
   let frames: SolveFrame[] = [];
   let index = 0;
   let jigs: Jig[] = [];
-  const coordinate = (cell: number) => `R${Math.floor(cell / 9) + 1}C${cell % 9 + 1}`;
+  let size = 9;
+  const coordinate = (cell: number) => `R${Math.floor(cell / size) + 1}C${cell % size + 1}`;
   function render() {
     const frame = frames[index];
     if (!frame) return;
@@ -21,22 +22,22 @@ export function createSolverView() {
     const board = get('solver-board'); board.replaceChildren();
     const changed = new Set([...frame.placements, ...frame.eliminations].map(x => x.cell));
     frame.values.forEach((value, cell) => {
-      const row = Math.floor(cell / 9), col = cell % 9;
+      const row = Math.floor(cell / size), col = cell % size;
       const el = document.createElement('span');
-      el.className = `cell${col % 3 === 2 && col < 8 ? ' box-right' : ''}${row % 3 === 2 && row < 8 ? ' box-bottom' : ''}${changed.has(cell) ? ' deduction-cell' : ''}`;
+      el.className = `cell${col % (size / 3) === size / 3 - 1 && col < size - 1 ? ' box-right' : ''}${row % 3 === 2 && row < size - 1 ? ' box-bottom' : ''}${changed.has(cell) ? ' deduction-cell' : ''}`;
       el.setAttribute('aria-hidden', 'true');
       if (value) el.textContent = String(value);
       else {
         const notes = document.createElement('span'); notes.className = 'solver-notes';
-        for (let d = 1; d <= 9; d++) { const mark = document.createElement('span'); mark.textContent = frame.candidates[cell].includes(d) ? String(d) : ''; notes.append(mark); }
+        for (let d = 1; d <= size; d++) { const mark = document.createElement('span'); mark.textContent = frame.candidates[cell].includes(d) ? String(d) : ''; notes.append(mark); }
         el.append(notes);
       }
       board.append(el);
     });
     for (const j of jigs) {
       const mark = document.createElement('span'); mark.className = `jig ${j.direction}`; mark.textContent = j.symbol;
-      mark.style.left = `${(j.col + (j.direction === 'horizontal' ? 1 : .5)) / 9 * 100}%`;
-      mark.style.top = `${(j.row + (j.direction === 'vertical' ? 1 : .5)) / 9 * 100}%`;
+      mark.style.left = `${(j.col + (j.direction === 'horizontal' ? 1 : .5)) / size * 100}%`;
+      mark.style.top = `${(j.row + (j.direction === 'vertical' ? 1 : .5)) / size * 100}%`;
       mark.setAttribute('aria-hidden', 'true'); board.append(mark);
     }
     board.setAttribute('aria-label', frame.values.map((v, i) => `${coordinate(i)}: ${v || `candidates ${frame.candidates[i].join(', ')}`}`).join('; '));
@@ -65,10 +66,10 @@ export function createSolverView() {
       else { stop(); get('solver-status').textContent = data.type === 'error' ? data.message : `Finished: ${data.logicSteps} logical steps${data.usedBacktracking ? ', then backtracking found one completion.' : '; solved entirely by logic.'} Use Next to follow the steps.`; }
     };
     active.onerror = () => { if (worker !== active) return; stop(); get('solver-status').textContent = 'The solver encountered an error. Please try again.'; };
-    active.postMessage(jigs);
+    active.postMessage({jigs,size});
   });
   get('step-prev').addEventListener('click', () => { if (index > 0) { index--; render(); } });
   get('step-next').addEventListener('click', () => { if (index < frames.length - 1) { index++; render(); } });
   get('step-select').addEventListener('change', () => { index = Number(get<HTMLSelectElement>('step-select').value); render(); });
-  return { reset(next: Jig[]) { stop(); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Start from the local jig notes and follow the logical techniques.'; } };
+  return { reset(next: Jig[], nextSize = 9) { stop(); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Start from the local jig notes and follow the logical techniques.'; } };
 }
