@@ -1,3 +1,4 @@
+import { createBacktrackingCheck } from './backtracking-check-view';
 import type { Jig } from './sudoku';
 import type { SolveFrame } from './logical-solver';
 
@@ -8,6 +9,7 @@ export function createSolverView() {
     <p id="solver-status" role="status" aria-live="polite">Start from the local jig notes and follow the logical techniques.</p>
     <div id="solver-content" hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p class="step-key">Highlighted cells changed in this step. The grid shows the state after the deduction.</p></div></div></div>`;
   document.querySelector('.guide')!.before(section);
+  const backtrackingCheck = createBacktrackingCheck(section);
   const get = <T extends HTMLElement>(id: string) => section.querySelector<T>(`#${id}`)!;
   let worker: Worker | undefined;
   let frames: SolveFrame[] = [];
@@ -71,5 +73,5 @@ export function createSolverView() {
   get('step-prev').addEventListener('click', () => { if (index > 0) { index--; render(); } });
   get('step-next').addEventListener('click', () => { if (index < frames.length - 1) { index++; render(); } });
   get('step-select').addEventListener('change', () => { index = Number(get<HTMLSelectElement>('step-select').value); render(); });
-  return { reset(next: Jig[], nextSize = 9) { stop(); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Start from the local jig notes and follow the logical techniques.'; } };
+  return { reset(next: Jig[], nextSize = 9) { stop(); backtrackingCheck.reset(next, nextSize); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Start from the local jig notes and follow the logical techniques.'; } };
 }
