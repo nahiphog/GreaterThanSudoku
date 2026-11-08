@@ -1,3 +1,4 @@
+import { techniqueHighlights, jigHighlights } from './step-highlights';
 import type { Jig } from './sudoku';
 import { jigCandidates } from './candidates';
 import { LOGIC_ORDER, DISABLED_TECHNIQUES, type SolveFrame } from './logical-solver';
@@ -71,8 +72,8 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
   const values = Array<number>(36).fill(0);
   let candidates = jigCandidates(jigs, size), logicSteps = 0, bruteForceUses = 0;
   const name = (c: number) => `R${Math.floor(c / size) + 1}C${c % size + 1}`;
-  const record = (title: string, description: string, kind: SolveFrame['kind'], oldValues = [...values], oldCandidates = candidates.map(d => [...d]), remotePair?: SolveFrame['remotePair']) => {
-    emit({ remotePair, title, description, kind, values: [...values], candidates: candidates.map(d => [...d]),
+  const record = (title: string, description: string, kind: SolveFrame['kind'], oldValues = [...values], oldCandidates = candidates.map(d => [...d]), highlights?: SolveFrame['highlights']) => {
+    emit({ highlights, title, description, kind, values: [...values], candidates: candidates.map(d => [...d]),
       placements: values.flatMap((d, c) => d && !oldValues[c] ? [{ cell: c, digit: d }] : []),
       eliminations: candidates.flatMap((ds, c) => values[c] ? [] : oldCandidates[c].filter(d => !ds.includes(d)).map(digit => ({cell:c,digit}))) });
   };
@@ -82,12 +83,13 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
     const oldValues = [...values], oldCandidates = candidates.map(d => [...d]);
     let title = '', description = '', placement: [number, number] | undefined;
     let kind: SolveFrame['kind'] = 'logic';
-    let remotePair: SolveFrame['remotePair'];
+    let highlights: SolveFrame['highlights'];
     for (const [a,b] of edges) {
       const left = values[a] ? [values[a]] : candidates[a], right = values[b] ? [values[b]] : candidates[b];
       if (!values[a]) candidates[a] = left.filter(x => right.some(y => x < y));
       if (!values[b]) candidates[b] = right.filter(y => left.some(x => x < y));
       if (candidates[a].length !== oldCandidates[a].length || candidates[b].length !== oldCandidates[b].length) {
+        highlights = jigHighlights(a,b,{values:oldValues,candidates:oldCandidates});
         title = 'Jig comparison'; description = `${name(a)} < ${name(b)}: remove candidates without a supporting value across this jig.`; break;
       }
     }
@@ -97,7 +99,7 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
       candidates.forEach((ds,c) => { state.cands[c] = ds.reduce((m,d) => m | bit(d), 0); });
       const step = findNextStep(state, SIX_LOGIC_ORDER);
       if (step && !DISABLED_TECHNIQUES.has(step.tech) && TECHS[step.tech].category !== 'Uniqueness') {
-        remotePair = step.colouring?.rule === 'remotePair' ? step.colouring.clusters[0] : undefined;
+        highlights = techniqueHighlights(step,{values:oldValues,candidates:oldCandidates},size);
         applyStep(state, step);
         if (isBroken(state)) throw new Error('A logical deduction produced contradictory candidates.');
         state.values.forEach((v,c) => { values[c] = v; });
@@ -121,7 +123,7 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
       for (const unit of units.filter(u=>u.includes(c))) for (const peer of unit) if (!values[peer]) candidates[peer]=candidates[peer].filter(x=>x!==d);
     }
     if(kind==='logic')logicSteps++;
-    record(title,description,kind,oldValues,oldCandidates,remotePair);
+    record(title,description,kind,oldValues,oldCandidates,highlights);
   }
   return {usedBacktracking:bruteForceUses>0,logicSteps,bruteForceUses};
 }

@@ -1,11 +1,11 @@
-import type { ColourCluster } from './vendor/sudokui/steps';
+import { techniqueHighlights, jigHighlights, type HighlightGroup } from './step-highlights';
 import { jigCandidates } from './candidates';
 import type { Jig } from './sudoku';
 import { applyStep, findNextStep, SOLVE_ORDER, TECHS, type Step } from './techniques';
 import { emptyGrid, cloneGrid, bit, digitsOf, setValue, UNITS, type Grid } from './vendor/sudokui/board';
 
 export type SolveFrame = {
-  remotePair?: ColourCluster;
+  highlights?: HighlightGroup[];
   title: string; description: string; values: number[]; candidates: number[][];
   placements: { cell: number; digit: number }[];
   eliminations: { cell: number; digit: number }[];
@@ -41,24 +41,24 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
     }
     return edges.every(([a, b]) => domain(g, a).some(x => domain(g, b).some(y => x < y)));
   }
-  function jigStep(g: Grid): { description: string; eliminations: Step['eliminations'] } | null {
+  function jigStep(g: Grid): { description: string; eliminations: Step['eliminations']; highlights: HighlightGroup[] } | null {
     for (const [a, b] of edges) {
       const left = domain(g, a), right = domain(g, b);
       const eliminations = [
         ...(!g.values[a] ? left.filter(x => !right.some(y => x < y)).map(digit => ({ cell: a, digit })) : []),
         ...(!g.values[b] ? right.filter(y => !left.some(x => x < y)).map(digit => ({ cell: b, digit })) : []),
       ];
-      if (eliminations.length) return { description: `${name(a)} < ${name(b)}. With ${name(a)} allowing ${left.join(', ')} and ${name(b)} allowing ${right.join(', ')}, remove digits that cannot satisfy this jig.`, eliminations };
+      if (eliminations.length) return { highlights: jigHighlights(a,b,{values:g.values,candidates:[...g.cands].map(digitsOf)}), description: `${name(a)} < ${name(b)}. With ${name(a)} allowing ${left.join(', ')} and ${name(b)} allowing ${right.join(', ')}, remove digits that cannot satisfy this jig.`, eliminations };
     }
     return null;
   }
-  function record(title: string, description: string, kind: SolveFrame['kind'], before?: Grid, step?: Step) {
+  function record(title: string, description: string, kind: SolveFrame['kind'], before?: Grid, step?: Step, highlights?: HighlightGroup[]) {
     const placements: SolveFrame['placements'] = [], eliminations: SolveFrame['eliminations'] = [];
     if (before) for (let cell = 0; cell < 81; cell++) {
       if (!before.values[cell] && state.values[cell]) placements.push({ cell, digit: state.values[cell] });
       if (!state.values[cell]) for (const digit of digitsOf(before.cands[cell] & ~state.cands[cell])) eliminations.push({ cell, digit });
     }
-    emit({ remotePair: step?.colouring?.rule === 'remotePair' ? step.colouring.clusters[0] : undefined, title, description, kind, placements, eliminations, values: [...state.values], candidates: [...state.cands].map(digitsOf) });
+    emit({ highlights: step && before ? techniqueHighlights(step,{values:before.values,candidates:[...before.cands].map(digitsOf)},9) : highlights, title, description, kind, placements, eliminations, values: [...state.values], candidates: [...state.cands].map(digitsOf) });
   }
   if (!valid(state)) throw new Error('The local notes contradict the puzzle rules.');
   record('Local jig notes', 'Start with an empty grid and candidates from local jig deductions only.', 'initial');
@@ -72,7 +72,7 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
     if (jig) {
       for (const e of jig.eliminations) state.cands[e.cell] &= ~bit(e.digit);
       if (!valid(state)) throw new Error('A jig deduction produced a contradiction.');
-      record('Jig comparison', jig.description, 'logic', before);
+      record('Jig comparison', jig.description, 'logic', before, undefined, jig.highlights);
     } else {
       progress('Trying sudokUI logical techniques…');
       const step = findNextStep(state, LOGIC_ORDER);
