@@ -1,3 +1,4 @@
+import { createDifficultyHistogram, renderDifficultyHistogram, type DifficultyHistogram } from './difficulty-histogram';
 import { createJigHistogram, renderJigHistogram } from './jig-histogram';
 import { decodeCompactPuzzle } from './compact';
 import { puzzleBoard } from './board-view';
@@ -17,7 +18,7 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
   <label class="simulation-dig"><input type="checkbox" name="dig" ${isJigs?'checked disabled':''}> Dig out jigs while preserving uniqueness</label>
   <button type="submit">Start simulation</button><button id="simulation-stop" type="button" disabled>Stop</button></form>
 
-  <p id="simulation-status" role="status">Ready.</p>${isJigs?'<section id="simulation-histogram" class="jig-histogram"></section>':''}<div class="simulation-controls"><button id="simulation-prev">Previous matches</button><span id="simulation-page-count"></span><button id="simulation-next">Next matches</button></div><div id="simulation-results"></div>`;
+  <p id="simulation-status" role="status">Ready.</p><section id="simulation-histogram" class="jig-histogram"></section><div class="simulation-controls"><button id="simulation-prev">Previous matches</button><span id="simulation-page-count"></span><button id="simulation-next">Next matches</button></div><div id="simulation-results"></div>`;
   main.querySelectorAll<HTMLElement>('[id]').forEach(el=>el.id=el.id.replace('simulation',prefix));
   main.querySelector('[id$=results]')!.classList.add('simulation-results');
   document.querySelector('footer')!.before(main);
@@ -26,6 +27,7 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
   let worker:Worker|undefined,timer=0,started=0,elapsed=0,completed=0,unique=0,skipped=0,total=0,sum=0,min=0,max=0,size=9,page=0;
   let dig=isJigs;
   if(isJigs)renderJigHistogram(get('simulation-histogram'),createJigHistogram(size));
+  else renderDifficultyHistogram(get('simulation-histogram'),createDifficultyHistogram());
   let matchCount=0, database='', renderId=0, outcome='Ready.';
   function status(){get('simulation-status').textContent=`${outcome} ${completed.toLocaleString()} / ${total.toLocaleString()} trials. ${unique.toLocaleString()} unique ${isJigs?'counted':'rated'}; ${skipped.toLocaleString()} skipped. ${matchCount.toLocaleString()} matches. Total elapsed time: ${(elapsed/1000).toFixed(3)} seconds.${unique?` Mean ${isJigs?'jig count':'difficulty'} (unique puzzles): ${(sum/unique).toFixed(2)}. Min: ${min}. Max: ${max}.`:''}`;}
   async function render(){
@@ -62,12 +64,14 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
   form.addEventListener('submit',event=>{
     event.preventDefault();stop('');if(database) indexedDB.deleteDatabase(database);database='greater-than-sudoku-simulation-'+Date.now()+'-'+Math.random().toString(36).slice(2);const data=new FormData(form);total=Number(data.get('trials'));size=Number(data.get('size'));const threshold=Number(data.get('threshold'));dig=isJigs || data.has('dig');
     if(isJigs)renderJigHistogram(get('simulation-histogram'),createJigHistogram(size));
+  else renderDifficultyHistogram(get('simulation-histogram'),createDifficultyHistogram());
     matchCount=0;completed=0;unique=0;skipped=0;sum=0;min=0;max=0;elapsed=0;page=0;outcome='Running.';started=performance.now();render();status();
     form.querySelectorAll<HTMLSelectElement|HTMLInputElement>('select,input').forEach(e=>e.disabled=true);form.querySelector<HTMLButtonElement>('[type=submit]')!.disabled=true;get<HTMLButtonElement>('simulation-stop').disabled=false;
     const active=new Worker(new URL('./simulation.worker.ts',import.meta.url),{type:'module'});worker=active;
     timer=window.setInterval(()=>{elapsed=performance.now()-started;status()},1000);
-    active.onmessage=(event:MessageEvent<{jigHistogram?:number[];completed:number;unique:number;skipped:number;sum:number;min:number;max:number;matchCount:number;done?:boolean;error?:string}>)=>{
+    active.onmessage=(event:MessageEvent<{difficultyHistogram?:DifficultyHistogram;jigHistogram?:number[];completed:number;unique:number;skipped:number;sum:number;min:number;max:number;matchCount:number;done?:boolean;error?:string}>)=>{
       if(worker!==active)return;const d=event.data;completed=d.completed;unique=d.unique;skipped=d.skipped;sum=d.sum;min=d.min;max=d.max;elapsed=performance.now()-started;const oldLength=matchCount;matchCount=d.matchCount;
+      if(!isJigs && d.difficultyHistogram)renderDifficultyHistogram(get('simulation-histogram'),d.difficultyHistogram);
       if(isJigs && d.jigHistogram)renderJigHistogram(get('simulation-histogram'),d.jigHistogram);
       // New jig-count matches can move into any sorted page. Render only that page.
       if(matchCount>oldLength && (isJigs || oldLength<10 || page===Math.floor(oldLength/10))) render();
