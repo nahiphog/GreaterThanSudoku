@@ -9,7 +9,7 @@ export function analyzeSimulationTrial(solution:Grid,mode:SimulationMode,dig:boo
   const size=solution.length;
   let jigs=createJigs(solution);
   if(checkUniqueness(jigs,()=>{},size).count!==1)return null;
-  if(dig)jigs=digJigs(jigs,size);
+  if(mode==='jigs' || dig)jigs=digJigs(jigs,size);
   const jigCount=jigs.length;
   // Jig-count simulation never invokes the difficulty solver or constructs a trace.
   const rating=mode==='difficulty'?ratePuzzle(jigs,size):undefined;

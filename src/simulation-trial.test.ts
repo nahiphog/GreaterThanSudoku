@@ -6,16 +6,17 @@ import { checkUniqueness } from './uniqueness';
 import { ratePuzzle, solvePuzzle } from './difficulty';
 
 const grid=Array.from({length:6},(_,r)=>Array.from({length:6},(_,c)=>(r*2+Math.floor(r/3)+c)%6+1));
-test('jig simulation uses an inclusive count limit without difficulty ratings',()=>{
-  const result=analyzeSimulationTrial(grid,'jigs',false,42)!;
-  assert.equal(result.jigCount,42);assert.equal(result.metric,42);assert.equal(result.matches,true);
-  assert.equal(result.score,undefined);assert.equal(result.tally,undefined);
-  assert.equal(analyzeSimulationTrial(grid,'jigs',false,41)!.matches,false);
+test('difficulty simulation can keep all jigs when digging is off',()=>{
+  const result=analyzeSimulationTrial(grid,'difficulty',false,0)!;
+  assert.equal(result.jigCount,42);assert.equal(result.matches,true);
+  assert.equal(result.score,ratePuzzle(decodeCompactPuzzle(result.string).jigs,6).score);
 });
-test('jig simulation digs before counting and exporting',()=>{
-  const result=analyzeSimulationTrial(grid,'jigs',true,108)!;
+
+test('jig simulation enforces digging even when the request says false',()=>{
+  const result=analyzeSimulationTrial(grid,'jigs',false,108)!;
   assert.ok(result.jigCount<42);assert.equal(result.score,undefined);assert.equal(result.tally,undefined);
   const {jigs}=decodeCompactPuzzle(result.string);
+  assert.equal(result.matches,true);assert.equal(result.metric,result.jigCount);
   assert.equal(jigs.length,result.jigCount);assert.equal(checkUniqueness(jigs,undefined,6).count,1);
 });
 test('difficulty simulation rates and exports the reduced jig set',()=>{
