@@ -1,6 +1,12 @@
 import type { Jig } from './sudoku';
 import { jigCandidates } from './candidates';
-import type { SolveFrame } from './logical-solver';
+import { LOGIC_ORDER, DISABLED_TECHNIQUES, type SolveFrame } from './logical-solver';
+import { emptyGrid, bit, digitsOf, isBroken } from './vendor/sudokui-six/board';
+import { findNextStep, applyStep } from './vendor/sudokui-six/humanSolver';
+import { TECHS } from './techniques';
+
+// A six-line fish leaves no outside line to eliminate from; seven lines cannot fit.
+export const SIX_LOGIC_ORDER = LOGIC_ORDER.filter(t => t !== 'WHALE' && t !== 'LEVIATHAN');
 
 export function unitsFor(size: number) {
   const width = size / 3;
@@ -59,7 +65,7 @@ export function searchDomains(jigs: Jig[], size: number, initial: number[][], li
   return { solutions, bruteForceUses };
 }
 
-/** Size-aware singles, intersections and pairs; the vendored advanced engine is 9x9-only. */
+/** Imported logical techniques adapted to 3-row by 2-column regions. */
 export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBacktracking = true) {
   const size = 6, units = unitsFor(size), edges = edgesFor(jigs, size);
   const values = Array<number>(36).fill(0);
@@ -84,32 +90,18 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
         title = 'Jig comparison'; description = `${name(a)} < ${name(b)}: remove candidates without a supporting value across this jig.`; break;
       }
     }
-    if (!title) {
-      const cell = values.findIndex((v,c) => !v && candidates[c].length === 1);
-      if (cell >= 0) { placement = [cell,candidates[cell][0]]; title = 'Naked Single'; description = `${name(cell)} has only candidate ${placement[1]}.`; }
-    }
-    if (!title) outer: for (const unit of units) for (let d=1;d<=size;d++) {
-      if (unit.some(c => values[c] === d)) continue;
-      const cells = unit.filter(c => !values[c] && candidates[c].includes(d));
-      if (cells.length === 1) { placement=[cells[0],d]; title='Hidden Single'; description=`${name(cells[0])} is the only location for ${d} in the unit (${unit.map(name).join(', ')}).`; break outer; }
-    }
-    if (!title) outer: for (let u=0;u<units.length;u++) for (let v=0;v<units.length;v++) {
-      if (u===v || (u<12 && v<12) || (u>=12 && v>=12)) continue;
-      for (let d=1;d<=size;d++) {
-        if (units[u].some(c=>values[c]===d)) continue;
-        const cells=units[u].filter(c=>!values[c] && candidates[c].includes(d));
-        const remove=units[v].filter(c=>!units[u].includes(c) && !values[c] && candidates[c].includes(d));
-        if (cells.length>1 && cells.every(c=>units[v].includes(c)) && remove.length) {
-          remove.forEach(c=>{candidates[c]=candidates[c].filter(x=>x!==d)});
-          title=u>=12?'Locked Candidates (Pointing)':'Locked Candidates (Claiming)'; description=`Digit ${d} is confined to ${cells.map(name).join(', ')} in one unit, eliminating it from the rest of the intersecting unit.`; break outer;
-        }
+    if (!title && jigs.length) {
+      const state = emptyGrid();
+      state.values.set(values);
+      candidates.forEach((ds,c) => { state.cands[c] = ds.reduce((m,d) => m | bit(d), 0); });
+      const step = findNextStep(state, SIX_LOGIC_ORDER);
+      if (step && !DISABLED_TECHNIQUES.has(step.tech) && TECHS[step.tech].category !== 'Uniqueness') {
+        applyStep(state, step);
+        if (isBroken(state)) throw new Error('A logical deduction produced contradictory candidates.');
+        state.values.forEach((v,c) => { values[c] = v; });
+        candidates = [...state.cands].map(digitsOf);
+        title = TECHS[step.tech].name; description = step.description;
       }
-    }
-    if (!title) outer: for (const unit of units) for (const a of unit) for (const b of unit) {
-      if (b<=a || values[a] || values[b] || candidates[a].length!==2 || candidates[a].join()!==candidates[b].join()) continue;
-      const pair=candidates[a];
-      const others=unit.filter(c=>c!==a&&c!==b&&!values[c]&&candidates[c].some(d=>pair.includes(d)));
-      if (others.length) { others.forEach(c=>{candidates[c]=candidates[c].filter(d=>!pair.includes(d))}); title='Naked Pair'; description=`${name(a)} and ${name(b)} contain only ${pair.join(', ')}, so remove those digits from other cells in their shared unit.`; break outer; }
     }
     if (!title) {
       if (!allowBacktracking) break;

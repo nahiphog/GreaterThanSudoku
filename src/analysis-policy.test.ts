@@ -39,20 +39,17 @@ test('all twelve requested techniques are excluded from the active logical order
   assert.deepEqual([...DISABLED_TECHNIQUES].map(key=>TECHS[key as keyof typeof TECHS].name).sort(),['3D Medusa','Finned Jellyfish','Grouped Nice Loop','Aligned Pair Exclusion','ALS-XY-Chain','Digit Forcing Chain','Nishio Forcing Chain','Sashimi Swordfish','Alternating Inference Chain','Pattern Overlay','Cell Forcing Chain','Finned X-Wing'].sort());
   assert.ok(LOGIC_ORDER.every(key=>!DISABLED_TECHNIQUES.has(key)));
 });
-test('reported 6x6 puzzle resumes logical deductions after search at step 14',()=>{
+test('previous step-14 fallback puzzle now solves with adapted logical techniques',()=>{
   const {jigs,size}=decodeCompactPuzzle('<0<0<>0<0<<0<0>>0<0><0>0<>0>0>∧v0v∧v∧0vv∧v0∧v∧v0v∧v∧0∧∧vv0∧v');
   const independent=checkBacktrackingUniqueness(jigs,size);
   assert.equal(independent.count,1);
   const frames:SolveFrame[]=[];
   const result=solvePuzzle(jigs,size,f=>frames.push(f));
-  assert.equal(frames[14].kind,'backtracking');
-  assert.equal(frames[14].placements.length,1);
-  assert.equal(frames[15].kind,'logic');
-  assert.equal(frames.length-1,42);
+  assert.equal(result.usedBacktracking,false);
+  assert.ok(frames.slice(1).every(f=>f.kind==='logic'));
   assert.deepEqual(frames.at(-1)!.values,independent.solutions[0]);
   for(const f of frames)for(let c=0;c<36;c++)assert.ok(f.values[c]===independent.solutions[0][c] || (!f.values[c]&&f.candidates[c].includes(independent.solutions[0][c])));
   const rating=ratePuzzle(jigs,size);
-  const brute=rating.tally.find(t=>t.name.startsWith('Brute force'))!;
-  assert.deepEqual(brute.steps,[14]);
-  assert.equal(brute.count,result.bruteForceUses);
+  assert.equal(rating.bruteForceUses,0);
+  assert.ok(rating.tally.some(t=>t.name==='Empty Rectangle'));
 });
