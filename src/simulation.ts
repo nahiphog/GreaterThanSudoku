@@ -35,7 +35,7 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
     const expanded = new Set(Array.from(results.querySelectorAll<HTMLDetailsElement>('details[open]'), detail => Number(detail.dataset.trial)));
     results.replaceChildren();
     let visible:Match[]=[];
-    try {if(database && matchCount) visible=await readMatches(database,page);} catch(error) {if(requestId===renderId) results.textContent=String(error);return;}
+    try {if(database && matchCount) visible=await readMatches(database,page,isJigs?'jigs':'trial');} catch(error) {if(requestId===renderId) results.textContent=String(error);return;}
     if(requestId!==renderId)return;
     for(const match of visible) {
       const card=document.createElement('article');card.className='simulation-card';
@@ -65,8 +65,8 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
     timer=window.setInterval(()=>{elapsed=performance.now()-started;status()},1000);
     active.onmessage=(event:MessageEvent<{completed:number;unique:number;skipped:number;sum:number;min:number;max:number;matchCount:number;done?:boolean;error?:string}>)=>{
       if(worker!==active)return;const d=event.data;completed=d.completed;unique=d.unique;skipped=d.skipped;sum=d.sum;min=d.min;max=d.max;elapsed=performance.now()-started;const oldLength=matchCount;matchCount=d.matchCount;
-      // Update only the visible page; never create a DOM grid for every trial.
-      if(matchCount>oldLength && (oldLength<10 || page===Math.floor(oldLength/10))) render();
+      // New jig-count matches can move into any sorted page. Render only that page.
+      if(matchCount>oldLength && (isJigs || oldLength<10 || page===Math.floor(oldLength/10))) render();
       else {get('simulation-page-count').textContent=`Page ${page+1} of ${Math.max(1,Math.ceil(matchCount/10))}`;get<HTMLButtonElement>('simulation-next').disabled=page>=Math.ceil(matchCount/10)-1;}
       if(d.error)stop('Stopped: '+d.error);else if(d.done)stop('Completed.');else status();
     };

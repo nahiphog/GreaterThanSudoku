@@ -12,6 +12,7 @@
     "check:six": "node scripts/adapt-six-engine.mjs --check"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.7",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^7.2.2"
