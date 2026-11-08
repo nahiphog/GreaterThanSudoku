@@ -11,10 +11,10 @@ import { encodeCompactPuzzle } from './compact';
 import { createJigs, generateSolution, type Grid, type Jig } from './sudoku';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="site-header"><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><nav aria-label="Main navigation"><a href="/GreaterThanSudoku/generate/" data-page="generate">Generate</a><a href="/GreaterThanSudoku/simulation/" data-page="simulation">Simulation difficulty</a><a href="/GreaterThanSudoku/verify/" data-page="verify">Verify</a><a href="/GreaterThanSudoku/custom-build/" data-page="custom-build">Custom build</a><button id="about-open" type="button">About</button></nav></header>
+  <header class="site-header"><nav aria-label="Main navigation"><select id="page-menu" aria-label="Page"><option value="generate">Generate</option><option value="simulation">Simulation</option><option value="verify">Verify</option><option value="custom-build">Custom Build</option></select></nav><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><button id="about-open" type="button">About</button></header>
   <main id="home-page">
     <section class="intro">
-      <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6×6 — 3 rows × 2 columns</option><option value="9" selected>9×9 — 3×3 regions</option></select></label></div>
+      <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6x6</option><option value="9" selected>9x9</option></select></label></div>
     </section>
     <section class="puzzles" aria-label="Generated Sudoku puzzles">
       <article class="puzzle-card"><div class="card-heading"><div><p class="eyebrow">01 / THE STARTING POINT</p><h2>Completed Sudoku</h2></div><span class="badge">81 numbers</span></div><div id="solution" class="board" role="img"></div><p class="card-caption"><span class="caption-dot"></span>Every row, column, and box contains 1–9.</p></article>
@@ -30,6 +30,7 @@ const solutionCard = document.querySelector<HTMLElement>('.puzzle-card')!;
 solutionCard.classList.add('solution-card');
 document.querySelector('#home-page')!.append(solutionCard);
 initSimulation((grid, step) => {
+  stopDigging('Construction stopped to open a simulation puzzle.');
   endUniqueSearch('Search stopped to open a simulation puzzle.');
   navigate('generate');
   size = grid.length;
@@ -113,6 +114,43 @@ let currentJigs: Jig[] = [];
 let uniquenessWorker: Worker | undefined;
 let cancelUniqueness: (() => void) | undefined;
 let uniqueSearch: { attempts: number; startedAt: number; timer: number } | undefined;
+let diggingWorker:Worker|undefined;
+let diggingTimer=0,diggingStarted=0,diggingAttempts=0,diggingMessage='';
+const diggingOption=document.createElement('label');
+diggingOption.className='digging-option';
+diggingOption.innerHTML='<input id="dig-jigs" type="checkbox"> Dig out jigs while preserving uniqueness';
+document.querySelector('#generate-unique')!.after(diggingOption);
+function diggingStatus(){
+  document.querySelector('#unique-search-status')!.textContent=`${diggingMessage} Attempts: ${diggingAttempts}. Total construction time: ${((performance.now()-diggingStarted)/1000).toFixed(3)} seconds.`;
+}
+function stopDigging(message?:string){
+  if(!diggingWorker)return;
+  diggingWorker.terminate();diggingWorker=undefined;window.clearInterval(diggingTimer);
+  document.querySelector('#generate-unique')!.textContent='Generate';
+  document.querySelector<HTMLInputElement>('#dig-jigs')!.disabled=false;
+  if(message){diggingMessage=message;diggingStatus();}
+}
+function startDigging(){
+  diggingStarted=performance.now();diggingAttempts=0;diggingMessage='Finding a unique puzzle with all region jigs…';
+  document.querySelector('#generate-unique')!.textContent='Stop digging';
+  document.querySelector<HTMLInputElement>('#dig-jigs')!.disabled=true;
+  cancelUniqueness?.();
+  const active=new Worker(new URL('./digging.worker.ts',import.meta.url),{type:'module'});diggingWorker=active;
+  diggingStatus();diggingTimer=window.setInterval(diggingStatus,250);
+  active.onmessage=(event:MessageEvent<{type:string;attempts:number;message:string;grid:Grid;jigs:Jig[];total:number}>)=>{
+    if(diggingWorker!==active)return;
+    const d=event.data;diggingAttempts=d.attempts;
+    if(d.type==='progress'){diggingMessage=d.message;diggingStatus();return;}
+    if(d.type==='error'){stopDigging('Construction failed: '+d.message);return;}
+    stopDigging();
+    showNotes=false;
+    displayPuzzle(d.grid,d.jigs,true);
+    diggingMessage=`Unique puzzle constructed. ${d.jigs.length} / ${d.total} jigs remain; no remaining jig can be removed while preserving uniqueness.`;
+    diggingStatus();
+  };
+  active.onerror=()=>{if(diggingWorker===active)stopDigging('Construction failed. Please try again.');};
+  active.postMessage({size});
+}
 
 function showSearchStatus(message: string) {
   if (!uniqueSearch) return;
@@ -135,11 +173,13 @@ function tryNextPuzzle() {
 }
 
 function startUniqueGeneration() {
+  if(diggingWorker){stopDigging('Construction cancelled; no completed dug puzzle was produced.');return;}
   if (uniqueSearch) {
     endUniqueSearch('Search stopped.');
     cancelUniqueness?.();
     return;
   }
+  if(document.querySelector<HTMLInputElement>('#dig-jigs')!.checked){startDigging();return;}
   uniqueSearch = { attempts: 0, startedAt: performance.now(), timer: 0 };
   uniqueSearch.timer = window.setInterval(() => showSearchStatus('Searching…'), 1000);
   document.querySelector('#generate-unique')!.textContent = 'Stop searching';
@@ -252,16 +292,18 @@ function handleVerification(count?: number) {
 
 function generate() { displayPuzzle(generateSolution(size)); }
 
-function displayPuzzle(grid: Grid) {
+function displayPuzzle(grid: Grid, jigs: Jig[] = createJigs(grid), verifiedUnique=false) {
   setPuzzleVisible(true);
   requestedStep = undefined;
-  const jigs = createJigs(grid);
   currentJigs = jigs;
   verificationCount = undefined;
   ratingWorker?.terminate(); ratingWorker = undefined;
   document.querySelector('#difficulty-result')!.textContent = 'Waiting for a verified unique solution before calculating difficulty.';
   solverView.reset(jigs, size);
-  startUniquenessCheck();
+  if(verifiedUnique){
+    document.querySelector('#uniqueness-status')!.textContent='Unique solution verified after every accepted jig removal.';
+    handleVerification(1);
+  }else startUniquenessCheck();
   renderBoard(document.querySelector('#solution')!, grid);
   renderBoard(document.querySelector('#jigs')!, grid, jigs);
   candidates = [];
@@ -298,6 +340,7 @@ function displayPuzzle(grid: Grid) {
   document.querySelector('#status')!.textContent = `Puzzle ${String(generation).padStart(2, '0')} · Generated together, connected by logic.`;
 }
 document.querySelector('#grid-type')!.addEventListener('change', () => {
+  stopDigging('Construction stopped to change grid type.');
   endUniqueSearch('Search stopped to change grid type.');
   size = Number(document.querySelector<HTMLSelectElement>('#grid-type')!.value);
   cancelUniqueness?.();

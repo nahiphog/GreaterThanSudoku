@@ -121,3 +121,11 @@ GPL-3.0. See `LICENSE` and `NOTICE` for the upstream source, revision, and attri
 Open `/GreaterThanSudoku/custom-build/` to select jig positions on a 6×6 or 9×9 grid, including borders between regions. Choose positions manually, place an exact number randomly, or use the standard region layout. Import/export uses 60 or 144 binary characters in the same edge order as puzzle strings. Choose a difficulty range, then Build now searches until a unique puzzle is solved without backtracking, matching the EitherOrSudoku Custom build acceptance rule. Halt build cancels the worker immediately. Results show attempts, elapsed time, difficulty, step links, completed grid, and puzzle-string/PNG copying.
 
 The Generate page also offers Copy grid as an image. The browser favicon uses the existing green greater-than brand mark.
+
+## Optional jig digging
+
+On Generate, enable **Dig out jigs while preserving uniqueness** before clicking Generate. A worker first finds a unique full-region puzzle (42 jigs for 6×6 or 108 for 9×9). It shuffles all jigs, tries removing each once, and keeps a removal only when the shared logic-first checker still finds exactly one solution. Rejected removals are restored. One pass is sufficient: removing further constraints cannot make an already non-unique removal unique. The final puzzle is irreducible under single-jig removal, not necessarily globally smallest.
+
+Progress shows tested jigs, remaining jigs, starting-puzzle attempts, and total construction time from generation through digging. Stop digging cancels the worker without presenting a partial result as finished. The final empty grid, notes, exports, rating and walkthrough all use the reduced jig set.
+
+The header page dropdown sits on the left, with the brand centered and About on the right. Grid-type choices are labelled 6x6 and 9x9 throughout the site.

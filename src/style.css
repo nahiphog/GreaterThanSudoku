@@ -59,3 +59,13 @@ dialog{max-width:520px;border:1px solid #b8c4b0;border-radius:12px;padding:28px;
 #custom-puzzle,#custom-solution { max-width:550px; margin:20px 0; }
 #custom-result { margin-top:36px; }
 @media(max-width:600px){#custom-build-page fieldset{padding:10px}.border-toggle{width:16px;height:16px}#custom-editor{padding:8px}}
+
+.generate-area .digging-option { display:flex; align-items:center; gap:8px; font-size:14px; }
+.digging-option input { width:18px; height:18px; accent-color:#294e3e; }
+
+.site-header { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:16px; }
+.site-header nav { justify-self:start; min-width:0; }
+#page-menu { max-width:100%; padding:10px; border:1px solid #dce1d8; border-radius:8px; background:#fff; color:#253c35; font:inherit; }
+.site-header .brand { justify-self:center; }
+.site-header > #about-open { justify-self:end; padding:10px 14px; }
+@media(max-width:640px){.site-header{grid-template-columns:minmax(65px,1fr) minmax(0,2fr) minmax(60px,1fr);gap:8px;padding:12px}.site-header .brand{font-size:14px;gap:6px;text-align:center}.brand-mark{flex-shrink:0;width:28px;height:28px}#page-menu{font-size:12px;padding:8px 2px}.site-header > #about-open{font-size:12px;padding:8px}}

@@ -7,6 +7,7 @@ export function currentPage(): Page {
 }
 function renderRoute() {
   const page=currentPage();
+  const menu=document.querySelector<HTMLSelectElement>('#page-menu');if(menu)menu.value=page;
   for(const [route,id] of [['generate','home-page'],['simulation','simulation-page'],['verify','verify-page'],['custom-build','custom-build-page']]) {
     const main=document.getElementById(id);if(main)main.hidden=page!==route;
   }
@@ -21,6 +22,7 @@ export function navigate(page:Page) {
   renderRoute();window.scrollTo({top:0});
 }
 export function initNavigation() {
+  document.querySelector<HTMLSelectElement>('#page-menu')?.addEventListener('change',event=>navigate((event.target as HTMLSelectElement).value as Page));
   // Keep older shared hash links working, then replace them with clean paths.
   const legacy=location.hash==='#simulation'?'simulation':location.hash==='#verify'?'verify':currentPage();
   history.replaceState(null,'',pageUrl(legacy));

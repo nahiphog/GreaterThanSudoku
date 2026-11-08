@@ -9,7 +9,7 @@ export function initSimulation(onStep: (grid: number[][], step: number) => void)
   const main=document.createElement('main');main.id='simulation-page';main.hidden=true;
   main.innerHTML=`<h1>Simulation difficulty</h1>
   <form id="simulation-form" class="simulation-controls"><label>Total trials<select name="trials">${[1,10,100,1000,10000,100000,1000000].map(n=>`<option value="${n}" ${n===100?'selected':''}>${n.toLocaleString()}</option>`).join('')}</select></label>
-  <label>Grid type<select name="size"><option value="6">6×6</option><option value="9" selected>9×9</option></select></label>
+  <label>Grid type<select name="size"><option value="6">6x6</option><option value="9" selected>9x9</option></select></label>
   <label>Display puzzles rated at least<select name="threshold">${[0,500,1000,2000,3000,10000,10000000].map(n=>`<option value="${n}">${n.toLocaleString()}</option>`).join('')}</select></label>
   <button type="submit">Start simulation</button><button id="simulation-stop" type="button" disabled>Stop</button></form>
 
