@@ -1,3 +1,4 @@
+import { createJigHistogram, recordJigCount } from './jig-histogram';
 import { openMatches, saveMatches } from './simulation-store';
 import { generateSolution } from './sudoku';
 import type { Tally } from './difficulty';
@@ -6,6 +7,7 @@ export type Match = { trial:number; elapsedMs:number; solution:number[][]; jigCo
 self.onmessage=async event=>{
   const {trials,size,threshold,database,mode='difficulty',dig=false}=event.data;
   let completed=0,unique=0,skipped=0,sum=0,min=Infinity,max=0,last=performance.now();
+  const jigHistogram=mode==='jigs'?createJigHistogram(size):undefined;
   let matches: Match[]=[];
   let db: IDBDatabase | undefined, matchCount=0;
   try {
@@ -15,14 +17,15 @@ self.onmessage=async event=>{
       const solution=generateSolution(size), analysis=analyzeSimulationTrial(solution,mode,dig,threshold);
       completed++;
       if (analysis) {
+        if(jigHistogram)recordJigCount(jigHistogram,analysis.jigCount);
         unique++; sum+=analysis.metric;min=Math.min(min,analysis.metric);max=Math.max(max,analysis.metric);
         if(analysis.matches) matches.push({trial,elapsedMs:performance.now()-startedAt,solution,jigCount:analysis.jigCount,score:analysis.score,string:analysis.string,tally:analysis.tally});
       } else skipped++;
-      if(performance.now()-last>150 || trial===trials) {
+      if((mode==='jigs' && analysis) || performance.now()-last>150 || trial===trials) {
         if(matches.length) await saveMatches(db,matches,matchCount);
         matchCount+=matches.length;
-        self.postMessage({completed,unique,skipped,sum,min,max,matchCount,done:trial===trials});matches=[];last=performance.now();
+        self.postMessage({jigHistogram,completed,unique,skipped,sum,min,max,matchCount,done:trial===trials});matches=[];last=performance.now();
       }
     }
-  } catch(error) {self.postMessage({completed,unique,skipped,sum,min,max,matchCount,error:error instanceof Error?error.message:'Simulation failed.'})} finally {db?.close()}
+  } catch(error) {self.postMessage({jigHistogram,completed,unique,skipped,sum,min,max,matchCount,error:error instanceof Error?error.message:'Simulation failed.'})} finally {db?.close()}
 };
