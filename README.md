@@ -129,3 +129,9 @@ On Generate, enable **Dig out jigs while preserving uniqueness** before clicking
 Progress shows tested jigs, remaining jigs, starting-puzzle attempts, and total construction time from generation through digging. Stop digging cancels the worker without presenting a partial result as finished. The final empty grid, notes, exports, rating and walkthrough all use the reduced jig set.
 
 The header page dropdown sits on the left, with the brand centered and About on the right. Grid-type choices are labelled 6x6 and 9x9 throughout the site.
+
+## Simulation digging and jig counts
+
+Simulation difficulty has an optional digging checkbox. Each trial first checks its full-region puzzle for uniqueness, then (when enabled) removes dispensable jigs before rating the reduced puzzle. Results show remaining jig count, difficulty, and elapsed generation/check/digging/rating time. Step links preserve the exact exported jig set. Non-unique starting puzzles remain skipped trials.
+
+Simulation jigs is available at `/GreaterThanSudoku/simulation-jigs/`. It shares the trial controls, grid sizes, digging, temporary storage, pagination, elapsed times, and string/PNG copy actions. Digging defaults on. Its inclusive maximum-jig dropdown contains every integer from 1 to 108 (default 108). Only unique puzzles with at most that many jigs are displayed. Statistics summarize jig counts; this mode never calls the difficulty-rating solver and does not display ratings or technique tallies.

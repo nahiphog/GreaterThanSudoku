@@ -7,11 +7,11 @@ import { renderRating } from './rating-view';
 import { initSimulation } from './simulation';
 import type { Tally } from './difficulty';
 import { createSolverView } from './solver-view';
-import { encodeCompactPuzzle } from './compact';
+import { decodeCompactPuzzle, encodeCompactPuzzle } from './compact';
 import { createJigs, generateSolution, type Grid, type Jig } from './sudoku';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="site-header"><nav aria-label="Main navigation"><select id="page-menu" aria-label="Page"><option value="generate">Generate</option><option value="simulation">Simulation</option><option value="verify">Verify</option><option value="custom-build">Custom Build</option></select></nav><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><button id="about-open" type="button">About</button></header>
+  <header class="site-header"><nav aria-label="Main navigation"><select id="page-menu" aria-label="Page"><option value="generate">Generate</option><option value="simulation">Simulation difficulty</option><option value="simulation-jigs">Simulation jigs</option><option value="verify">Verify</option><option value="custom-build">Custom Build</option></select></nav><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><button id="about-open" type="button">About</button></header>
   <main id="home-page">
     <section class="intro">
       <div class="generate-area"><label>Grid type <select id="grid-type"><option value="6">6x6</option><option value="9" selected>9x9</option></select></label></div>
@@ -29,15 +29,17 @@ document.querySelector('#about-open')!.addEventListener('click', () => document.
 const solutionCard = document.querySelector<HTMLElement>('.puzzle-card')!;
 solutionCard.classList.add('solution-card');
 document.querySelector('#home-page')!.append(solutionCard);
-initSimulation((grid, step) => {
+const openSimulationStep=(grid:Grid, step:number, string:string) => {
   stopDigging('Construction stopped to open a simulation puzzle.');
   endUniqueSearch('Search stopped to open a simulation puzzle.');
   navigate('generate');
   size = grid.length;
   document.querySelector<HTMLSelectElement>('#grid-type')!.value = String(size);
-  displayPuzzle(grid);
+  displayPuzzle(grid,decodeCompactPuzzle(string).jigs);
   requestedStep = step;
-});
+};
+initSimulation(openSimulationStep);
+initSimulation(openSimulationStep,'jigs');
 initVerify();
 initCustomBuild();
 const solutionBoard = document.querySelector<HTMLElement>('#solution')!;

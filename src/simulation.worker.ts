@@ -1,10 +1,10 @@
 import { openMatches, saveMatches } from './simulation-store';
-import { generateSolution, createJigs } from './sudoku';
-import { encodeCompactPuzzle } from './compact';
-import { rateUniquePuzzle, type Tally } from './difficulty';
-export type Match = { trial:number; elapsedMs:number; solution:number[][]; score:number; string:string; tally:Tally[] };
+import { generateSolution } from './sudoku';
+import type { Tally } from './difficulty';
+import { analyzeSimulationTrial } from './simulation-trial';
+export type Match = { trial:number; elapsedMs:number; solution:number[][]; jigCount:number; score?:number; string:string; tally?:Tally[] };
 self.onmessage=async event=>{
-  const {trials,size,threshold,database}=event.data;
+  const {trials,size,threshold,database,mode='difficulty',dig=false}=event.data;
   let completed=0,unique=0,skipped=0,sum=0,min=Infinity,max=0,last=performance.now();
   let matches: Match[]=[];
   let db: IDBDatabase | undefined, matchCount=0;
@@ -12,11 +12,11 @@ self.onmessage=async event=>{
     db=await openMatches(database);
     for(let trial=1;trial<=trials;trial++) {
       const startedAt=performance.now();
-      const solution=generateSolution(size), jigs=createJigs(solution), {rating}=rateUniquePuzzle(jigs,size);
+      const solution=generateSolution(size), analysis=analyzeSimulationTrial(solution,mode,dig,threshold);
       completed++;
-      if (rating) {
-        unique++; sum+=rating.score;min=Math.min(min,rating.score);max=Math.max(max,rating.score);
-        if(rating.score>=threshold) matches.push({trial,elapsedMs:performance.now()-startedAt,solution,score:rating.score,string:encodeCompactPuzzle(jigs,size),tally:rating.tally});
+      if (analysis) {
+        unique++; sum+=analysis.metric;min=Math.min(min,analysis.metric);max=Math.max(max,analysis.metric);
+        if(analysis.matches) matches.push({trial,elapsedMs:performance.now()-startedAt,solution,jigCount:analysis.jigCount,score:analysis.score,string:analysis.string,tally:analysis.tally});
       } else skipped++;
       if(performance.now()-last>150 || trial===trials) {
         if(matches.length) await saveMatches(db,matches,matchCount);
