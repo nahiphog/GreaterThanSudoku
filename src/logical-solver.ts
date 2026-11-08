@@ -1,9 +1,11 @@
+import type { ColourCluster } from './vendor/sudokui/steps';
 import { jigCandidates } from './candidates';
 import type { Jig } from './sudoku';
 import { applyStep, findNextStep, SOLVE_ORDER, TECHS, type Step } from './techniques';
 import { emptyGrid, cloneGrid, bit, digitsOf, setValue, UNITS, type Grid } from './vendor/sudokui/board';
 
 export type SolveFrame = {
+  remotePair?: ColourCluster;
   title: string; description: string; values: number[]; candidates: number[][];
   placements: { cell: number; digit: number }[];
   eliminations: { cell: number; digit: number }[];
@@ -50,13 +52,13 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
     }
     return null;
   }
-  function record(title: string, description: string, kind: SolveFrame['kind'], before?: Grid) {
+  function record(title: string, description: string, kind: SolveFrame['kind'], before?: Grid, step?: Step) {
     const placements: SolveFrame['placements'] = [], eliminations: SolveFrame['eliminations'] = [];
     if (before) for (let cell = 0; cell < 81; cell++) {
       if (!before.values[cell] && state.values[cell]) placements.push({ cell, digit: state.values[cell] });
       if (!state.values[cell]) for (const digit of digitsOf(before.cands[cell] & ~state.cands[cell])) eliminations.push({ cell, digit });
     }
-    emit({ title, description, kind, placements, eliminations, values: [...state.values], candidates: [...state.cands].map(digitsOf) });
+    emit({ remotePair: step?.colouring?.rule === 'remotePair' ? step.colouring.clusters[0] : undefined, title, description, kind, placements, eliminations, values: [...state.values], candidates: [...state.cands].map(digitsOf) });
   }
   if (!valid(state)) throw new Error('The local notes contradict the puzzle rules.');
   record('Local jig notes', 'Start with an empty grid and candidates from local jig deductions only.', 'initial');
@@ -78,7 +80,7 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
       applyStep(state, step);
       if (!valid(state)) throw new Error(`The ${TECHS[step.tech].name} step produced a contradiction.`);
       if (state.values.every((v, i) => v === before.values[i]) && state.cands.every((v, i) => v === before.cands[i])) throw new Error('The technique made no progress.');
-      record(TECHS[step.tech].name, step.description, 'logic', before);
+      record(TECHS[step.tech].name, step.description, 'logic', before, step);
     }
     logicSteps++;
     if (logicSteps > 810) throw new Error('Logical step limit exceeded.');

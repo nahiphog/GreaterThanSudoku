@@ -71,3 +71,7 @@ dialog{max-width:520px;border:1px solid #b8c4b0;border-radius:12px;padding:28px;
 @media(max-width:640px){.site-header{grid-template-columns:minmax(65px,1fr) minmax(0,2fr) minmax(60px,1fr);gap:8px;padding:12px}.site-header .brand{font-size:14px;gap:6px;text-align:center}.brand-mark{flex-shrink:0;width:28px;height:28px}#page-menu{font-size:12px;padding:8px 2px}.site-header > #about-open{font-size:12px;padding:8px}}
 
 .simulation-controls .simulation-dig{display:flex;align-items:center;gap:8px}.simulation-dig input{width:18px;height:18px;accent-color:#294e3e}
+
+.walkthrough-board .remote-pair-cell{background:#f0e7fa;box-shadow:inset 0 0 0 2px #9d75bd}
+.solver-notes .remote-pair-dark{background:#63328b;color:#fff;border-radius:3px;font-weight:700}
+.solver-notes .remote-pair-light{background:#dfc7f1;color:#3b1757;border-radius:3px;font-weight:700}

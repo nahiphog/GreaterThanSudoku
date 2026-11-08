@@ -71,8 +71,8 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
   const values = Array<number>(36).fill(0);
   let candidates = jigCandidates(jigs, size), logicSteps = 0, bruteForceUses = 0;
   const name = (c: number) => `R${Math.floor(c / size) + 1}C${c % size + 1}`;
-  const record = (title: string, description: string, kind: SolveFrame['kind'], oldValues = [...values], oldCandidates = candidates.map(d => [...d])) => {
-    emit({ title, description, kind, values: [...values], candidates: candidates.map(d => [...d]),
+  const record = (title: string, description: string, kind: SolveFrame['kind'], oldValues = [...values], oldCandidates = candidates.map(d => [...d]), remotePair?: SolveFrame['remotePair']) => {
+    emit({ remotePair, title, description, kind, values: [...values], candidates: candidates.map(d => [...d]),
       placements: values.flatMap((d, c) => d && !oldValues[c] ? [{ cell: c, digit: d }] : []),
       eliminations: candidates.flatMap((ds, c) => values[c] ? [] : oldCandidates[c].filter(d => !ds.includes(d)).map(digit => ({cell:c,digit}))) });
   };
@@ -82,6 +82,7 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
     const oldValues = [...values], oldCandidates = candidates.map(d => [...d]);
     let title = '', description = '', placement: [number, number] | undefined;
     let kind: SolveFrame['kind'] = 'logic';
+    let remotePair: SolveFrame['remotePair'];
     for (const [a,b] of edges) {
       const left = values[a] ? [values[a]] : candidates[a], right = values[b] ? [values[b]] : candidates[b];
       if (!values[a]) candidates[a] = left.filter(x => right.some(y => x < y));
@@ -96,6 +97,7 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
       candidates.forEach((ds,c) => { state.cands[c] = ds.reduce((m,d) => m | bit(d), 0); });
       const step = findNextStep(state, SIX_LOGIC_ORDER);
       if (step && !DISABLED_TECHNIQUES.has(step.tech) && TECHS[step.tech].category !== 'Uniqueness') {
+        remotePair = step.colouring?.rule === 'remotePair' ? step.colouring.clusters[0] : undefined;
         applyStep(state, step);
         if (isBroken(state)) throw new Error('A logical deduction produced contradictory candidates.');
         state.values.forEach((v,c) => { values[c] = v; });
@@ -119,7 +121,7 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
       for (const unit of units.filter(u=>u.includes(c))) for (const peer of unit) if (!values[peer]) candidates[peer]=candidates[peer].filter(x=>x!==d);
     }
     if(kind==='logic')logicSteps++;
-    record(title,description,kind,oldValues,oldCandidates);
+    record(title,description,kind,oldValues,oldCandidates,remotePair);
   }
   return {usedBacktracking:bruteForceUses>0,logicSteps,bruteForceUses};
 }

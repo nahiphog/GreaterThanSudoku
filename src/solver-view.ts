@@ -9,7 +9,7 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
   section.className = 'solver-section';
   section.innerHTML = `<div class="solver-heading"><div><p class="eyebrow">FOLLOW THE DEDUCTIONS</p><h2>Step-by-step solver</h2></div><button id="solve-steps" type="button">Solve step by step</button></div>
     <p id="solver-status" role="status" aria-live="polite">Start from the local jig notes and follow the logical techniques.</p>
-    <div id="solver-content" data-solver-content hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p class="step-key">Red crossed-out notes are removed in this step and disappear in the next. Highlighted cells changed. Placed numbers appear immediately at full size.</p></div></div></div>`;
+    <div id="solver-content" data-solver-content hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p id="step-pattern"></p><p class="step-key">Red crossed-out notes are removed in this step and disappear in the next. Green cells changed. Purple cells support the Remote Pair; dark and light purple notes show its two alternating groups. Placed numbers appear immediately at full size.</p></div></div></div>`;
   section.querySelector('.board')!.classList.add('walkthrough-board');
   section.querySelectorAll<HTMLElement>('[id]').forEach(el => { el.id = prefix + el.id; });
   if (options.host) options.host.append(section); else document.querySelector('#home-page > .bottom-line')!.before(section);
@@ -29,10 +29,13 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
     get('solver-content').hidden = false;
     const board = get('solver-board'); board.replaceChildren();
     const changed = new Set([...frame.placements, ...frame.eliminations].map(x => x.cell));
+    const dark = new Set(frame.remotePair?.dark.map(x => x.cell + ':' + x.digit));
+    const light = new Set(frame.remotePair?.light.map(x => x.cell + ':' + x.digit));
+    const supporting = new Set([...(frame.remotePair?.dark ?? []), ...(frame.remotePair?.light ?? [])].map(x => x.cell));
     frame.values.forEach((value, cell) => {
       const row = Math.floor(cell / size), col = cell % size;
       const el = document.createElement('span');
-      el.className = `cell${col % (size / 3) === size / 3 - 1 && col < size - 1 ? ' box-right' : ''}${row % 3 === 2 && row < size - 1 ? ' box-bottom' : ''}${changed.has(cell) ? ' deduction-cell' : ''}`;
+      el.className = `cell${col % (size / 3) === size / 3 - 1 && col < size - 1 ? ' box-right' : ''}${row % 3 === 2 && row < size - 1 ? ' box-bottom' : ''}${changed.has(cell) ? ' deduction-cell' : ''}${supporting.has(cell) ? ' remote-pair-cell' : ''}`;
       el.setAttribute('aria-hidden', 'true');
       const display = stepNotes(frame, frames[index - 1], cell);
       if (!display.showNotes) el.textContent = String(value);
@@ -43,6 +46,8 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
           const removed = display.removed.includes(d);
           mark.textContent = removed || display.remaining.includes(d) ? String(d) : '';
           if (removed) mark.className = 'removed-note';
+          else if (dark.has(cell + ':' + d)) mark.className = 'remote-pair-dark';
+          else if (light.has(cell + ':' + d)) mark.className = 'remote-pair-light';
           else if (value === d) mark.className = 'placed-note';
           notes.append(mark);
         }
@@ -56,7 +61,8 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
       mark.style.top = `${(j.row + (j.direction === 'vertical' ? 1 : .5)) / size * 100}%`;
       mark.setAttribute('aria-hidden', 'true'); board.append(mark);
     }
-    board.setAttribute('aria-label', frame.values.map((v, i) => `${coordinate(i)}: ${v || `candidates ${frame.candidates[i].join(', ')}`}${stepNotes(frame, frames[index - 1], i).removed.length ? '; crossed out ' + stepNotes(frame, frames[index - 1], i).removed.join(', ') : ''}`).join('; '));
+    board.setAttribute('aria-label', frame.values.map((v, i) => `${coordinate(i)}${supporting.has(i) ? ' (Remote Pair cell)' : ''}: ${v || `candidates ${frame.candidates[i].join(', ')}`}${stepNotes(frame, frames[index - 1], i).removed.length ? '; crossed out ' + stepNotes(frame, frames[index - 1], i).removed.join(', ') : ''}`).join('; '));
+    get('step-pattern').textContent = supporting.size ? 'Remote Pair cells: ' + [...supporting].sort((a,b)=>a-b).map(coordinate).join(', ') + '.' : '';
     get('step-title').textContent = `${index}. ${frame.title}`;
     get('step-description').textContent = frame.description;
     get('step-placements').textContent = frame.placements.length ? `Place: ${frame.placements.map(p => `${coordinate(p.cell)} = ${p.digit}`).join('; ')}.` : '';
