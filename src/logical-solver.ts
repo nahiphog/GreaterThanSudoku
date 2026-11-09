@@ -1,7 +1,7 @@
 import { techniqueHighlights, jigHighlights, type HighlightGroup } from './step-highlights';
 import { jigCandidates } from './candidates';
 import type { Jig } from './sudoku';
-import { applyStep, findNextStep, SOLVE_ORDER, TECHS, type Step } from './techniques';
+import { applyStep, findStep, SOLVE_ORDER, TECHS, type Step, type Tech } from './techniques';
 import { emptyGrid, cloneGrid, bit, digitsOf, setValue, UNITS, type Grid } from './vendor/sudokui/board';
 
 export type SolveFrame = {
@@ -12,8 +12,17 @@ export type SolveFrame = {
   kind: 'initial' | 'logic' | 'backtracking';
 };
 // Classic uniqueness deductions can change inequalities when swapping digits.
-export const DISABLED_TECHNIQUES = new Set(['MEDUSA_3D', 'FINNED_JELLYFISH', 'GROUPED_NICE_LOOP', 'ALIGNED_PAIR_EXCLUSION', 'ALS_XY_CHAIN', 'DIGIT_FORCING_CHAIN', 'NISHIO_FORCING_CHAIN', 'SASHIMI_SWORDFISH', 'AIC', 'PATTERN_OVERLAY', 'CELL_FORCING_CHAIN', 'FINNED_X_WING']);
+export const DISABLED_TECHNIQUES = new Set(['MEDUSA_3D', 'FINNED_JELLYFISH', 'GROUPED_NICE_LOOP', 'ALIGNED_PAIR_EXCLUSION', 'ALS_XY_CHAIN', 'DIGIT_FORCING_CHAIN', 'NISHIO_FORCING_CHAIN', 'SASHIMI_SWORDFISH', 'AIC', 'PATTERN_OVERLAY', 'CELL_FORCING_CHAIN', 'FINNED_X_WING', 'XY_CHAIN', 'ALS_XZ', 'AIC_ALS', 'UNIT_FORCING_CHAIN', 'CHUTE_REMOTE_PAIR', 'FORCING_NET']);
 export const LOGIC_ORDER = SOLVE_ORDER.filter(t => !DISABLED_TECHNIQUES.has(t) && TECHS[t].category !== 'Uniqueness' && t !== 'BRUTE_FORCE');
+/** Imported grouped finders can return a different technique than requested. */
+export function nextEnabledStep<T extends {tech:Tech}>(order:Tech[],finder:(tech:Tech)=>T|null):T|null {
+  for(const tech of order){
+    if(DISABLED_TECHNIQUES.has(tech))continue;
+    const step=finder(tech);
+    if(step && !DISABLED_TECHNIQUES.has(step.tech) && TECHS[step.tech].category!=='Uniqueness' && step.tech!=='BRUTE_FORCE')return step;
+  }
+  return null;
+}
 const name = (cell: number) => `R${Math.floor(cell / 9) + 1}C${cell % 9 + 1}`;
 
 export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, progress: (message: string) => void = () => {}, allowBacktracking = true) {
@@ -75,7 +84,7 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
       record('Jig comparison', jig.description, 'logic', before, undefined, jig.highlights);
     } else {
       progress('Trying sudokUI logical techniques…');
-      const step = findNextStep(state, LOGIC_ORDER);
+      const step = nextEnabledStep(LOGIC_ORDER,tech=>findStep(tech,state));
       if (!step) break;
       applyStep(state, step);
       if (!valid(state)) throw new Error(`The ${TECHS[step.tech].name} step produced a contradiction.`);

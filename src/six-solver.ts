@@ -1,9 +1,9 @@
 import { techniqueHighlights, jigHighlights } from './step-highlights';
 import type { Jig } from './sudoku';
 import { jigCandidates } from './candidates';
-import { LOGIC_ORDER, DISABLED_TECHNIQUES, type SolveFrame } from './logical-solver';
+import { LOGIC_ORDER, DISABLED_TECHNIQUES, nextEnabledStep, type SolveFrame } from './logical-solver';
 import { emptyGrid, bit, digitsOf, isBroken } from './vendor/sudokui-six/board';
-import { findNextStep, applyStep } from './vendor/sudokui-six/humanSolver';
+import { findStep, applyStep } from './vendor/sudokui-six/humanSolver';
 import { TECHS } from './techniques';
 
 // A six-line fish leaves no outside line to eliminate from; seven lines cannot fit.
@@ -97,7 +97,7 @@ export function solveSix(jigs: Jig[], emit: (frame: SolveFrame) => void, allowBa
       const state = emptyGrid();
       state.values.set(values);
       candidates.forEach((ds,c) => { state.cands[c] = ds.reduce((m,d) => m | bit(d), 0); });
-      const step = findNextStep(state, SIX_LOGIC_ORDER);
+      const step = nextEnabledStep(SIX_LOGIC_ORDER,tech=>findStep(tech,state));
       if (step && !DISABLED_TECHNIQUES.has(step.tech) && TECHS[step.tech].category !== 'Uniqueness') {
         highlights = techniqueHighlights(step,{values:oldValues,candidates:oldCandidates},size);
         applyStep(state, step);

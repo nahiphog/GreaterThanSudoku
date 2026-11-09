@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { rateUniquePuzzle, solveUniquePuzzle, ratePuzzle, solvePuzzle } from './difficulty';
 import { createJigs } from './sudoku';
-import { DISABLED_TECHNIQUES, LOGIC_ORDER, type SolveFrame } from './logical-solver';
+import { DISABLED_TECHNIQUES, LOGIC_ORDER, nextEnabledStep, type SolveFrame } from './logical-solver';
+import { SIX_LOGIC_ORDER } from './six-solver';
 import { TECHS } from './techniques';
 import { decodeCompactPuzzle } from './compact';
 import { checkBacktrackingUniqueness } from './backtracking-uniqueness';
@@ -21,6 +22,9 @@ for (const size of [6,9]) {
     const frames: SolveFrame[]=[];
     assert.ok(solveUniquePuzzle(jigs,size,frame=>frames.push(frame)));
     const allSteps:number[]=[];
+    const disabledNames=new Set([...DISABLED_TECHNIQUES].map(key=>TECHS[key as keyof typeof TECHS].name));
+    assert.ok(frames.every(frame=>!disabledNames.has(frame.title)));
+    assert.ok(analysis.rating.tally.every(item=>!disabledNames.has(item.name)));
     for (const item of analysis.rating.tally) for (const step of item.steps) {
       assert.ok(step>0&&step<frames.length);
       assert.equal(frames[step].kind,'logic');assert.equal(frames[step].title,item.name);allSteps.push(step);
@@ -35,9 +39,10 @@ test('backtracking tally points to its walkthrough frame while preserving per-gu
   assert.equal(rating.score,rating.tally.reduce((sum,t)=>sum+t.count*t.score,0));
   assert.equal(item.score,10000);
 });
-test('all twelve requested techniques are excluded from the active logical order',()=>{
-  assert.deepEqual([...DISABLED_TECHNIQUES].map(key=>TECHS[key as keyof typeof TECHS].name).sort(),['3D Medusa','Finned Jellyfish','Grouped Nice Loop','Aligned Pair Exclusion','ALS-XY-Chain','Digit Forcing Chain','Nishio Forcing Chain','Sashimi Swordfish','Alternating Inference Chain','Pattern Overlay','Cell Forcing Chain','Finned X-Wing'].sort());
+test('all eighteen requested techniques are excluded from both active logical orders',()=>{
+  assert.deepEqual([...DISABLED_TECHNIQUES].map(key=>TECHS[key as keyof typeof TECHS].name).sort(),['3D Medusa','Finned Jellyfish','Grouped Nice Loop','Aligned Pair Exclusion','ALS-XY-Chain','Digit Forcing Chain','Nishio Forcing Chain','Sashimi Swordfish','Alternating Inference Chain','Pattern Overlay','Cell Forcing Chain','Finned X-Wing','XY-Chain','ALS-XZ','AIC with ALSs','Unit Forcing Chain','Chute Remote Pair','Forcing Net'].sort());
   assert.ok(LOGIC_ORDER.every(key=>!DISABLED_TECHNIQUES.has(key)));
+  assert.ok(SIX_LOGIC_ORDER.every(key=>!DISABLED_TECHNIQUES.has(key)));
 });
 test('previous step-14 fallback puzzle now solves with adapted logical techniques',()=>{
   const {jigs,size}=decodeCompactPuzzle('<0<0<>0<0<<0<0>>0<0><0>0<>0>0>∧v0v∧v∧0vv∧v0∧v∧v0v∧v∧0∧∧vv0∧v');
@@ -52,4 +57,13 @@ test('previous step-14 fallback puzzle now solves with adapted logical technique
   const rating=ratePuzzle(jigs,size);
   assert.equal(rating.bruteForceUses,0);
   assert.ok(rating.tally.some(t=>t.name==='Empty Rectangle'));
+});
+
+test('disabled results from enabled grouped finders are skipped without blocking later techniques',()=>{
+  for(const order of [LOGIC_ORDER,SIX_LOGIC_ORDER]){
+    const visited:string[]=[];
+    const result=nextEnabledStep(order,tech=>{visited.push(tech);return {tech:visited.length===1?'AIC_ALS':tech};});
+    assert.equal(visited.length,2);assert.equal(result?.tech,order[1]);
+    assert.equal(nextEnabledStep(order,()=>({tech:'AIC_ALS'})),null);
+  }
 });

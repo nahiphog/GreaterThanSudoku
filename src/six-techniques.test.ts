@@ -4,7 +4,7 @@ import { emptyGrid, bit, setValue, UNITS, PEERS, boxOf } from './vendor/sudokui-
 import { findStep } from './vendor/sudokui-six/humanSolver';
 import { findTurbotFamily, findEmptyRectangle } from './vendor/sudokui-six/techniques/singleDigit';
 import { SIX_LOGIC_ORDER, unitsFor } from './six-solver';
-import { LOGIC_ORDER, DISABLED_TECHNIQUES, type SolveFrame } from './logical-solver';
+import { LOGIC_ORDER, DISABLED_TECHNIQUES, nextEnabledStep, type SolveFrame } from './logical-solver';
 import { decodeCompactPuzzle } from './compact';
 import { solvePuzzle, ratePuzzle } from './difficulty';
 import { checkBacktrackingUniqueness } from './backtracking-uniqueness';
@@ -61,7 +61,7 @@ test('every active adapted finder preserves a known completion in 100 determinis
     for(let c=0;c<36;c++)if(random()<trial%5/10)setValue(g,c,solution[c]);
     for(let c=0;c<36;c++)if(!g.values[c])for(let d=1;d<=6;d++)if(d!==solution[c]&&random()<0.5)g.cands[c]&=~bit(d);
     for(const tech of SIX_LOGIC_ORDER) {
-      const step=findStep(tech,g);if(!step)continue;deductions++;
+      const step=nextEnabledStep([tech],key=>findStep(key,g));if(!step)continue;deductions++;
       assert.ok(!DISABLED_TECHNIQUES.has(step.tech),step.tech);
       for(const {cell,digit} of step.eliminations){assert.ok(cell>=0&&cell<36&&digit>=1&&digit<=6,tech);assert.notEqual(solution[cell],digit,`${tech} trial ${trial} cell ${cell}`);}
       for(const {cell,digit} of step.placements)assert.equal(solution[cell],digit,`${tech} trial ${trial} cell ${cell}`);
