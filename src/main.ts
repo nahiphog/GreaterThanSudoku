@@ -124,7 +124,7 @@ diggingOption.innerHTML='<input id="dig-jigs" type="checkbox"> Dig out jigs whil
 document.querySelector('#generate-unique')!.after(diggingOption);
 const diggingMethodLabel=document.createElement('label');
 diggingMethodLabel.className='digging-option';
-diggingMethodLabel.innerHTML='Digging method <select id="dig-method" disabled><option value="single">Single jig</option><option value="rotational">Rotational pairs (180°)</option></select>';
+diggingMethodLabel.innerHTML='Digging method <select id="dig-method" disabled><option value="single">Single jig</option><option value="rotational" selected>Rotational pairs (180°)</option></select>';
 diggingOption.after(diggingMethodLabel);
 const diggingMethod=document.querySelector<HTMLSelectElement>('#dig-method')!;
 document.querySelector('#dig-jigs')!.addEventListener('change',()=>{diggingMethod.disabled=!document.querySelector<HTMLInputElement>('#dig-jigs')!.checked;});
