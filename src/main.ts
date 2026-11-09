@@ -122,6 +122,12 @@ const diggingOption=document.createElement('label');
 diggingOption.className='digging-option';
 diggingOption.innerHTML='<input id="dig-jigs" type="checkbox"> Dig out jigs while preserving uniqueness';
 document.querySelector('#generate-unique')!.after(diggingOption);
+const diggingMethodLabel=document.createElement('label');
+diggingMethodLabel.className='digging-option';
+diggingMethodLabel.innerHTML='Digging method <select id="dig-method" disabled><option value="single">Single jig</option><option value="rotational">Rotational pairs (180°)</option></select>';
+diggingOption.after(diggingMethodLabel);
+const diggingMethod=document.querySelector<HTMLSelectElement>('#dig-method')!;
+document.querySelector('#dig-jigs')!.addEventListener('change',()=>{diggingMethod.disabled=!document.querySelector<HTMLInputElement>('#dig-jigs')!.checked;});
 function diggingStatus(){
   document.querySelector('#unique-search-status')!.textContent=`${diggingMessage} Attempts: ${diggingAttempts}. Total construction time: ${((performance.now()-diggingStarted)/1000).toFixed(3)} seconds.`;
 }
@@ -130,9 +136,11 @@ function stopDigging(message?:string){
   diggingWorker.terminate();diggingWorker=undefined;window.clearInterval(diggingTimer);
   document.querySelector('#generate-unique')!.textContent='Generate';
   document.querySelector<HTMLInputElement>('#dig-jigs')!.disabled=false;
+  diggingMethod.disabled=false;
   if(message){diggingMessage=message;diggingStatus();}
 }
 function startDigging(){
+  const method=diggingMethod.value;diggingMethod.disabled=true;
   diggingStarted=performance.now();diggingAttempts=0;diggingMessage='Finding a unique puzzle with all region jigs…';
   document.querySelector('#generate-unique')!.textContent='Stop digging';
   document.querySelector<HTMLInputElement>('#dig-jigs')!.disabled=true;
@@ -147,11 +155,11 @@ function startDigging(){
     stopDigging();
     showNotes=false;
     displayPuzzle(d.grid,d.jigs,true);
-    diggingMessage=`Unique puzzle constructed. ${d.jigs.length} / ${d.total} jigs remain; no remaining jig can be removed while preserving uniqueness.`;
+    diggingMessage=`Unique puzzle constructed. ${d.jigs.length} / ${d.total} jigs remain; no remaining ${method==='rotational'?'rotational pair':'jig'} can be removed while preserving uniqueness.`;
     diggingStatus();
   };
   active.onerror=()=>{if(diggingWorker===active)stopDigging('Construction failed. Please try again.');};
-  active.postMessage({size});
+  active.postMessage({size,method});
 }
 
 function showSearchStatus(message: string) {

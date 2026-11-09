@@ -16,6 +16,7 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
   <label>Grid type<select name="size"><option value="6">6x6</option><option value="9" selected>9x9</option></select></label>
   <label>${isJigs?'Display puzzles with at most X jigs':'Display puzzles rated at least'}<select name="threshold">${(isJigs?Array.from({length:108},(_,i)=>i+1):[0,500,1000,2000,3000,10000,10000000]).map(n=>`<option value="${n}" ${isJigs&&n===108?'selected':''}>${n.toLocaleString()}</option>`).join('')}</select></label>
   <label class="simulation-dig"><input type="checkbox" name="dig" ${isJigs?'checked disabled':''}> Dig out jigs while preserving uniqueness</label>
+  <label>Digging method<select name="method" ${isJigs?'':'disabled'}><option value="single">Single jig</option><option value="rotational">Rotational pairs (180°)</option></select></label>
   <button type="submit">Start simulation</button><button id="simulation-stop" type="button" disabled>Stop</button></form>
 
   <p id="simulation-status" role="status">Ready.</p><section id="simulation-histogram" class="jig-histogram"></section><div class="simulation-controls"><button id="simulation-prev">Previous matches</button><span id="simulation-page-count"></span><button id="simulation-next">Next matches</button></div><div id="simulation-results"></div>`;
@@ -24,6 +25,9 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
   document.querySelector('footer')!.before(main);
   const get=<T extends HTMLElement>(id:string)=>main.querySelector<T>('#'+id.replace('simulation',prefix))!;
   const form=get<HTMLFormElement>('simulation-form');
+  const methodSelect=form.querySelector<HTMLSelectElement>('[name=method]')!;
+  const digCheckbox=form.querySelector<HTMLInputElement>('[name=dig]')!;
+  digCheckbox.addEventListener('change',()=>{methodSelect.disabled=!digCheckbox.checked;});
   let worker:Worker|undefined,timer=0,started=0,elapsed=0,completed=0,unique=0,skipped=0,total=0,sum=0,min=0,max=0,size=9,page=0;
   let dig=isJigs;
   if(isJigs)renderJigHistogram(get('simulation-histogram'),createJigHistogram(size));
@@ -60,9 +64,9 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
       results.append(card);
     }
   }
-  function stop(message:string){if(worker){worker.terminate();worker=undefined;elapsed=performance.now()-started}window.clearInterval(timer);outcome=message;get<HTMLButtonElement>('simulation-stop').disabled=true;form.querySelectorAll<HTMLSelectElement|HTMLInputElement>('select,input').forEach(e=>e.disabled=isJigs && e.name==='dig');form.querySelector<HTMLButtonElement>('[type=submit]')!.disabled=false;status();}
+  function stop(message:string){if(worker){worker.terminate();worker=undefined;elapsed=performance.now()-started}window.clearInterval(timer);outcome=message;get<HTMLButtonElement>('simulation-stop').disabled=true;form.querySelectorAll<HTMLSelectElement|HTMLInputElement>('select,input').forEach(e=>e.disabled=(isJigs && e.name==='dig') || (e.name==='method' && !digCheckbox.checked));form.querySelector<HTMLButtonElement>('[type=submit]')!.disabled=false;status();}
   form.addEventListener('submit',event=>{
-    event.preventDefault();stop('');if(database) indexedDB.deleteDatabase(database);database='greater-than-sudoku-simulation-'+Date.now()+'-'+Math.random().toString(36).slice(2);const data=new FormData(form);total=Number(data.get('trials'));size=Number(data.get('size'));const threshold=Number(data.get('threshold'));dig=isJigs || data.has('dig');
+    event.preventDefault();stop('');if(database) indexedDB.deleteDatabase(database);database='greater-than-sudoku-simulation-'+Date.now()+'-'+Math.random().toString(36).slice(2);const data=new FormData(form);total=Number(data.get('trials'));size=Number(data.get('size'));const threshold=Number(data.get('threshold'));dig=isJigs || data.has('dig');const method=methodSelect.value;
     if(isJigs)renderJigHistogram(get('simulation-histogram'),createJigHistogram(size));
   else renderDifficultyHistogram(get('simulation-histogram'),createDifficultyHistogram());
     matchCount=0;completed=0;unique=0;skipped=0;sum=0;min=0;max=0;elapsed=0;page=0;outcome='Running.';started=performance.now();render();status();
@@ -78,7 +82,7 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
       else {get('simulation-page-count').textContent=`Page ${page+1} of ${Math.max(1,Math.ceil(matchCount/10))}`;get<HTMLButtonElement>('simulation-next').disabled=page>=Math.ceil(matchCount/10)-1;}
       if(d.error)stop('Stopped: '+d.error);else if(d.done)stop('Completed.');else status();
     };
-    active.onerror=()=>{if(worker===active)stop('Simulation failed. Partial results retained.')};active.postMessage({trials:total,size,threshold,database,mode,dig});
+    active.onerror=()=>{if(worker===active)stop('Simulation failed. Partial results retained.')};active.postMessage({trials:total,size,threshold,database,mode,dig,method});
   });
   window.addEventListener('pagehide',()=>{worker?.terminate();if(database)indexedDB.deleteDatabase(database)});
   get('simulation-stop').addEventListener('click',()=>stop('Stopped. Partial results retained.'));

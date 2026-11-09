@@ -6,7 +6,7 @@ import type { Tally } from './difficulty';
 import { analyzeSimulationTrial } from './simulation-trial';
 export type Match = { trial:number; elapsedMs:number; solution:number[][]; jigCount:number; score?:number; string:string; tally?:Tally[] };
 self.onmessage=async event=>{
-  const {trials,size,threshold,database,mode='difficulty',dig=false}=event.data;
+  const {trials,size,threshold,database,mode='difficulty',dig=false,method='single'}=event.data;
   let completed=0,unique=0,skipped=0,sum=0,min=Infinity,max=0,last=performance.now();
   const difficultyHistogram=mode==='difficulty'?createDifficultyHistogram():undefined;
   const jigHistogram=mode==='jigs'?createJigHistogram(size):undefined;
@@ -16,7 +16,7 @@ self.onmessage=async event=>{
     db=await openMatches(database);
     for(let trial=1;trial<=trials;trial++) {
       const startedAt=performance.now();
-      const solution=generateSolution(size), analysis=analyzeSimulationTrial(solution,mode,dig,threshold);
+      const solution=generateSolution(size), analysis=analyzeSimulationTrial(solution,mode,dig,threshold,method);
       completed++;
       if (analysis) {
         if(difficultyHistogram)recordDifficulty(difficultyHistogram,analysis.metric);
