@@ -8,7 +8,7 @@ import { initSimulation } from './simulation';
 import type { Tally } from './difficulty';
 import { createSolverView } from './solver-view';
 import { decodeCompactPuzzle, encodeCompactPuzzle } from './compact';
-import { createJigs, generateSolution, type Grid, type Jig } from './sudoku';
+import { createJigs, type Grid, type Jig } from './sudoku';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="site-header"><nav aria-label="Main navigation"><select id="page-menu" aria-label="Page"><option value="generate">Generate</option><option value="simulation">Simulation difficulty</option><option value="simulation-jigs">Simulation jigs</option><option value="verify">Verify</option><option value="custom-build">Custom Build</option></select></nav><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><button id="about-open" type="button">About</button></header>
@@ -31,7 +31,6 @@ solutionCard.classList.add('solution-card');
 document.querySelector('#home-page')!.append(solutionCard);
 const openSimulationStep=(grid:Grid, step:number, string:string) => {
   stopDigging('Construction stopped to open a simulation puzzle.');
-  endUniqueSearch('Search stopped to open a simulation puzzle.');
   navigate('generate');
   size = grid.length;
   document.querySelector<HTMLSelectElement>('#grid-type')!.value = String(size);
@@ -115,7 +114,6 @@ let notesError = '';
 let currentJigs: Jig[] = [];
 let uniquenessWorker: Worker | undefined;
 let cancelUniqueness: (() => void) | undefined;
-let uniqueSearch: { attempts: number; startedAt: number; timer: number } | undefined;
 let diggingWorker:Worker|undefined;
 let diggingTimer=0,diggingStarted=0,diggingAttempts=0,diggingMessage='';
 const diggingOption=document.createElement('label');
@@ -136,13 +134,13 @@ function stopDigging(message?:string){
   diggingWorker.terminate();diggingWorker=undefined;window.clearInterval(diggingTimer);
   document.querySelector('#generate-unique')!.textContent='Generate';
   document.querySelector<HTMLInputElement>('#dig-jigs')!.disabled=false;
-  diggingMethod.disabled=false;
+  diggingMethod.disabled=!document.querySelector<HTMLInputElement>('#dig-jigs')!.checked;
   if(message){diggingMessage=message;diggingStatus();}
 }
-function startDigging(){
+function startDigging(dig:boolean){
   const method=diggingMethod.value;diggingMethod.disabled=true;
   diggingStarted=performance.now();diggingAttempts=0;diggingMessage='Finding a unique puzzle with all region jigs…';
-  document.querySelector('#generate-unique')!.textContent='Stop digging';
+  document.querySelector('#generate-unique')!.textContent=dig?'Stop digging':'Stop searching';
   document.querySelector<HTMLInputElement>('#dig-jigs')!.disabled=true;
   cancelUniqueness?.();
   const active=new Worker(new URL('./digging.worker.ts',import.meta.url),{type:'module'});diggingWorker=active;
@@ -155,45 +153,16 @@ function startDigging(){
     stopDigging();
     showNotes=false;
     displayPuzzle(d.grid,d.jigs,true);
-    diggingMessage=`Unique puzzle constructed. ${d.jigs.length} / ${d.total} jigs remain; no remaining ${method==='rotational'?'rotational pair':'jig'} can be removed while preserving uniqueness.`;
+    diggingMessage=dig?`Unique puzzle constructed. ${d.jigs.length} / ${d.total} jigs remain; no remaining ${method==='rotational'?'rotational pair':'jig'} can be removed while preserving uniqueness.`:'Unique puzzle found. Exactly one solution verified.';
     diggingStatus();
   };
   active.onerror=()=>{if(diggingWorker===active)stopDigging('Construction failed. Please try again.');};
-  active.postMessage({size,method});
-}
-
-function showSearchStatus(message: string) {
-  if (!uniqueSearch) return;
-  document.querySelector('#unique-search-status')!.textContent = `${message} Attempts: ${uniqueSearch.attempts}. Total elapsed time: ${((performance.now() - uniqueSearch.startedAt) / 1000).toFixed(3)} seconds.`;
-}
-
-function endUniqueSearch(message: string) {
-  if (!uniqueSearch) return;
-  showSearchStatus(message);
-  window.clearInterval(uniqueSearch.timer);
-  uniqueSearch = undefined;
-  document.querySelector('#generate-unique')!.textContent = 'Generate';
-}
-
-function tryNextPuzzle() {
-  if (!uniqueSearch) return;
-  uniqueSearch.attempts++;
-  showSearchStatus('Searching…');
-  generate();
+  active.postMessage({size,method,dig});
 }
 
 function startUniqueGeneration() {
-  if(diggingWorker){stopDigging('Construction cancelled; no completed dug puzzle was produced.');return;}
-  if (uniqueSearch) {
-    endUniqueSearch('Search stopped.');
-    cancelUniqueness?.();
-    return;
-  }
-  if(document.querySelector<HTMLInputElement>('#dig-jigs')!.checked){startDigging();return;}
-  uniqueSearch = { attempts: 0, startedAt: performance.now(), timer: 0 };
-  uniqueSearch.timer = window.setInterval(() => showSearchStatus('Searching…'), 1000);
-  document.querySelector('#generate-unique')!.textContent = 'Stop searching';
-  tryNextPuzzle();
+  if(diggingWorker){stopDigging('Search cancelled; no new puzzle was produced.');return;}
+  startDigging(document.querySelector<HTMLInputElement>('#dig-jigs')!.checked);
 }
 document.querySelector('#generate-unique')!.addEventListener('click', startUniqueGeneration);
 
@@ -212,13 +181,7 @@ function startUniquenessCheck() {
     cancelUniqueness = undefined;
     document.querySelector('#uniqueness-status')!.textContent = `${message} Elapsed time: ${((performance.now() - startedAt) / 1000).toFixed(3)} seconds.`;
     handleVerification(count);
-    if (uniqueSearch) {
-      if (count === 1) endUniqueSearch('Unique puzzle found.');
-      else if (count === 0 || count === 2) {
-        const search = uniqueSearch;
-        window.setTimeout(() => { if (uniqueSearch === search) tryNextPuzzle(); }, 0);
-      } else endUniqueSearch('Search stopped before uniqueness could be determined.');
-    }
+
   };
   cancelUniqueness = () => finish('Check cancelled — uniqueness is undetermined.');
   worker.onmessage = (event: MessageEvent<{ count?: number; error?: string; progress?: string; logicSteps?: number; usedBacktracking?: boolean }>) => {
@@ -300,8 +263,6 @@ function handleVerification(count?: number) {
   }
 }
 
-function generate() { displayPuzzle(generateSolution(size)); }
-
 function displayPuzzle(grid: Grid, jigs: Jig[] = createJigs(grid), verifiedUnique=false) {
   setPuzzleVisible(true);
   requestedStep = undefined;
@@ -311,7 +272,7 @@ function displayPuzzle(grid: Grid, jigs: Jig[] = createJigs(grid), verifiedUniqu
   document.querySelector('#difficulty-result')!.textContent = 'Waiting for a verified unique solution before calculating difficulty.';
   solverView.reset(jigs, size);
   if(verifiedUnique){
-    document.querySelector('#uniqueness-status')!.textContent='Unique solution verified after every accepted jig removal.';
+    document.querySelector('#uniqueness-status')!.textContent='Unique solution verified before displaying this puzzle.';
     handleVerification(1);
   }else startUniquenessCheck();
   renderBoard(document.querySelector('#solution')!, grid);
@@ -351,7 +312,6 @@ function displayPuzzle(grid: Grid, jigs: Jig[] = createJigs(grid), verifiedUniqu
 }
 document.querySelector('#grid-type')!.addEventListener('change', () => {
   stopDigging('Construction stopped to change grid type.');
-  endUniqueSearch('Search stopped to change grid type.');
   size = Number(document.querySelector<HTMLSelectElement>('#grid-type')!.value);
   cancelUniqueness?.();
   notesWorker?.terminate();ratingWorker?.terminate();
