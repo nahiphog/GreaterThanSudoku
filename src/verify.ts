@@ -11,10 +11,11 @@ export function initVerify() {
   const get=<T extends HTMLElement>(id:string)=>main.querySelector<T>('#'+id)!;
   const solver=createSolverView(()=>{}, {host:get('verify-walkthrough'),prefix:'verify-'});
   get('verify-walkthrough').hidden=true;
+  let requestedStep:number|undefined;
   let worker:Worker|undefined,startedAt=0,verified=false,inputRevision=0;
   const elapsed=()=>`Elapsed time: ${((performance.now()-startedAt)/1000).toFixed(3)} seconds.`;
   function stop(){worker?.terminate();worker=undefined;get<HTMLButtonElement>('verify-toggle').textContent='Verify';}
-  function clear(){stop();verified=false;get('verify-results').hidden=true;get('verify-walkthrough').hidden=true;solver.reset([],9);get('verify-rating').replaceChildren();get('verify-solution').replaceChildren();get('verify-puzzle').replaceChildren();}
+  function clear(){requestedStep=undefined;stop();verified=false;get('verify-results').hidden=true;get('verify-walkthrough').hidden=true;solver.reset([],9);get('verify-rating').replaceChildren();get('verify-solution').replaceChildren();get('verify-puzzle').replaceChildren();}
   const input=get<HTMLTextAreaElement>('verify-input');
   function inputChanged(){inputRevision++;clear();get('verify-status').textContent=input.value?'Input changed. Select Verify to check this puzzle.':'Enter a puzzle string to check its uniqueness.';}
   input.addEventListener('input',inputChanged);
@@ -56,7 +57,7 @@ export function initVerify() {
         get('verify-solution').append(puzzleBoard([],puzzle.size,data.solution));
         get('verify-rating').textContent='Calculating difficulty…';solver.setVerifiedUnique(true);
       } else if(data.type==='rating') {
-        renderRating(get('verify-rating'),data.score,data.tally,'Difficulty rating',step=>solver.jumpToStep(step));stop();
+        renderRating(get('verify-rating'),data.score,data.tally,'Difficulty rating',step=>solver.jumpToStep(step));if(requestedStep!==undefined){solver.jumpToStep(requestedStep);requestedStep=undefined;}stop();
       } else {
         if(verified)get('verify-rating').textContent='Difficulty unavailable: '+data.message;
         else get('verify-status').textContent='Verification failed: '+data.message+' '+elapsed();
@@ -72,4 +73,8 @@ export function initVerify() {
     else get('verify-status').textContent='Check cancelled — uniqueness is undetermined. '+elapsed();
     stop();
   }
+  return {openPuzzle(string:string,step?:number){
+    input.value=string;inputChanged();get<HTMLFormElement>('verify-form').requestSubmit();requestedStep=step;
+  }};
+
 }

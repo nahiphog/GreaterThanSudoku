@@ -6,9 +6,9 @@ import { initNavigation, navigate } from './navigation';
 import { renderRating } from './rating-view';
 import { initSimulation } from './simulation';
 import type { Tally } from './difficulty';
-import { createSolverView } from './solver-view';
-import { decodeCompactPuzzle, encodeCompactPuzzle } from './compact';
-import { createJigs, type Grid, type Jig } from './sudoku';
+import { hardestTechnique } from './generation-summary';
+import { encodeCompactPuzzle } from './compact';
+import { type Grid, type Jig } from './sudoku';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="site-header"><nav aria-label="Main navigation"><select id="page-menu" aria-label="Page"><option value="generate">Generate</option><option value="simulation">Simulation difficulty</option><option value="simulation-jigs">Simulation jigs</option><option value="verify">Verify</option><option value="custom-build">Custom Build</option></select></nav><a class="brand" href="/GreaterThanSudoku/generate/" data-page="generate"><span class="brand-mark" aria-hidden="true">&gt;</span> Greater than Sudoku</a><button id="about-open" type="button">About</button></header>
@@ -29,17 +29,12 @@ document.querySelector('#about-open')!.addEventListener('click', () => document.
 const solutionCard = document.querySelector<HTMLElement>('.puzzle-card')!;
 solutionCard.classList.add('solution-card');
 document.querySelector('#home-page')!.append(solutionCard);
-const openSimulationStep=(grid:Grid, step:number, string:string) => {
-  stopDigging('Construction stopped to open a simulation puzzle.');
-  navigate('generate');
-  size = grid.length;
-  document.querySelector<HTMLSelectElement>('#grid-type')!.value = String(size);
-  displayPuzzle(grid,decodeCompactPuzzle(string).jigs);
-  requestedStep = step;
+const verifyPage=initVerify();
+const openSimulationStep=(_grid:Grid, step:number, string:string) => {
+  navigate('verify');verifyPage.openPuzzle(string,step);
 };
 initSimulation(openSimulationStep);
 initSimulation(openSimulationStep,'jigs');
-initVerify();
 initCustomBuild();
 const solutionBoard = document.querySelector<HTMLElement>('#solution')!;
 const solutionContent = document.createElement('div');
@@ -58,9 +53,6 @@ document.querySelector('#solution')!.insertAdjacentHTML('afterend', '<button id=
 document.querySelector('#jigs')!.setAttribute('role', 'group');
 document.querySelector('.jig-card .card-heading')!.insertAdjacentHTML('afterend', '<button id="toggle-notes" class="notes-toggle" type="button" aria-pressed="false" aria-controls="jigs">Show local jig notes</button><p id="notes-status" class="notes-status" role="status" aria-live="polite"></p>');
 document.querySelector('#jigs')!.insertAdjacentHTML('afterend', '<div class="copy-actions"><button id="copy-puzzle" class="copy-button" type="button">Copy puzzle string</button><button id="copy-puzzle-image" class="copy-button" type="button">Copy grid as an image</button></div><p id="jig-copy-status" class="copy-status" role="status" aria-live="polite"></p><p id="selected-cell" class="selection-status" role="status" aria-live="polite">Select a cell to see its row and column.</p>');
-document.querySelector('#selected-cell')!.insertAdjacentHTML('afterend', '<button id="check-uniqueness" class="copy-button" type="button">Check uniqueness</button><p id="uniqueness-status" class="selection-status" role="status" aria-live="polite"></p>');
-
-const solverView = createSolverView(count => handleVerification(count));
 document.querySelector('.generate-area')!.insertAdjacentHTML('beforeend', '<button id="generate-unique" class="copy-button" type="button">Generate</button><p id="unique-search-status" role="status" aria-live="polite"></p>');
 
 function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
@@ -101,9 +93,8 @@ function renderBoard(element: HTMLElement, grid: Grid, jigs?: Jig[]) {
 
 let size = 9;
 let ratingWorker: Worker | undefined;
-let verificationCount: number | undefined;
-let requestedStep: number | undefined;
-document.querySelector('.jig-card')!.insertAdjacentHTML('afterend', '<section class="rating-panel"><div id="difficulty-result" role="status"></div><p>Rating = logical technique scores + 10,000 per guessed backtracking branch (including failed guesses). Jig deductions score 0. This rates one completion, not the uniqueness proof. 6×6 uses singles, locked candidates and pairs; 9×9 also uses imported advanced techniques.</p></section>');
+
+document.querySelector('.jig-card')!.insertAdjacentHTML('afterend', '<section class="rating-panel"><p id="generation-time"></p><p id="hardest-technique" role="status"></p><div id="difficulty-result" role="status"></div><p>Rating = logical technique scores + 10,000 per guessed backtracking branch (including failed guesses). Jig deductions score 0. This rates one completion, not the uniqueness proof.</p></section>');
 let generation = 0;
 let puzzleString = '';
 let solutionString = '';
@@ -112,8 +103,6 @@ let candidates: number[][] = [];
 let notesWorker: Worker | undefined;
 let notesError = '';
 let currentJigs: Jig[] = [];
-let uniquenessWorker: Worker | undefined;
-let cancelUniqueness: (() => void) | undefined;
 let diggingWorker:Worker|undefined;
 let diggingTimer=0,diggingStarted=0,diggingAttempts=0,diggingMessage='';
 const diggingOption=document.createElement('label');
@@ -142,7 +131,6 @@ function startDigging(dig:boolean){
   diggingStarted=performance.now();diggingAttempts=0;diggingMessage='Finding a unique puzzle with all region jigs…';
   document.querySelector('#generate-unique')!.textContent=dig?'Stop digging':'Stop searching';
   document.querySelector<HTMLInputElement>('#dig-jigs')!.disabled=true;
-  cancelUniqueness?.();
   const active=new Worker(new URL('./digging.worker.ts',import.meta.url),{type:'module'});diggingWorker=active;
   diggingStatus();diggingTimer=window.setInterval(diggingStatus,250);
   active.onmessage=(event:MessageEvent<{type:string;attempts:number;message:string;grid:Grid;jigs:Jig[];total:number}>)=>{
@@ -152,7 +140,7 @@ function startDigging(dig:boolean){
     if(d.type==='error'){stopDigging('Construction failed: '+d.message);return;}
     stopDigging();
     showNotes=false;
-    displayPuzzle(d.grid,d.jigs,true);
+    displayPuzzle(d.grid,d.jigs,performance.now()-diggingStarted);
     diggingMessage=dig?`Unique puzzle constructed. ${d.jigs.length} / ${d.total} jigs remain; no remaining ${method==='rotational'?'rotational pair':'jig'} can be removed while preserving uniqueness.`:'Unique puzzle found. Exactly one solution verified.';
     diggingStatus();
   };
@@ -165,42 +153,6 @@ function startUniqueGeneration() {
   startDigging(document.querySelector<HTMLInputElement>('#dig-jigs')!.checked);
 }
 document.querySelector('#generate-unique')!.addEventListener('click', startUniqueGeneration);
-
-function startUniquenessCheck() {
-  uniquenessWorker?.terminate();
-  const startedAt = performance.now();
-  const worker = new Worker(new URL('./uniqueness.worker.ts', import.meta.url), { type: 'module' });
-  uniquenessWorker = worker;
-  document.querySelector('#check-uniqueness')!.textContent = 'Cancel uniqueness check';
-  document.querySelector('#uniqueness-status')!.textContent = 'Checking with local jig notes and sudokUI logical techniques…';
-  const finish = (message: string, count?: number) => {
-    if (uniquenessWorker !== worker) return;
-    worker.terminate();
-    uniquenessWorker = undefined;
-    document.querySelector('#check-uniqueness')!.textContent = 'Check uniqueness';
-    cancelUniqueness = undefined;
-    document.querySelector('#uniqueness-status')!.textContent = `${message} Elapsed time: ${((performance.now() - startedAt) / 1000).toFixed(3)} seconds.`;
-    handleVerification(count);
-
-  };
-  cancelUniqueness = () => finish('Check cancelled — uniqueness is undetermined.');
-  worker.onmessage = (event: MessageEvent<{ count?: number; error?: string; progress?: string; logicSteps?: number; usedBacktracking?: boolean }>) => {
-    if (uniquenessWorker !== worker) return;
-    if (event.data.progress) {
-      document.querySelector('#uniqueness-status')!.textContent = event.data.progress;
-      return;
-    }
-    const method = event.data.usedBacktracking ? `${event.data.logicSteps} logical steps, then backtracking on the remaining possibilities.` : `${event.data.logicSteps} logical steps; no backtracking needed.`;
-    finish(event.data.error ?? ((event.data.count === 0 ? 'No solution.' : event.data.count === 1 ? 'Unique solution — exactly one valid completion.' : 'Not unique — at least two valid completions.') + ' ' + method), event.data.error ? undefined : event.data.count);
-  };
-  worker.onerror = () => finish('The uniqueness check failed. Please try again.');
-  worker.postMessage({jigs:currentJigs,size});
-}
-document.querySelector('#check-uniqueness')!.addEventListener('click', () => {
-  if (uniquenessWorker) {
-    cancelUniqueness?.();
-  } else startUniquenessCheck();
-});
 
 function updateNotes() {
   document.querySelectorAll<HTMLButtonElement>('#jigs .cell').forEach((cell, index) => {
@@ -238,43 +190,23 @@ function startRating() {
   rating.onmessage = (event: MessageEvent<{error?:string;score:number;tally:Tally[]}>) => {
     if (ratingWorker !== rating) return;
     if (event.data.error) ratingView.textContent = 'Difficulty unavailable: ' + event.data.error;
-    else renderRating(ratingView,event.data.score,event.data.tally,'Difficulty rating', step => solverView.jumpToStep(step));
+    else {
+      renderRating(ratingView,event.data.score,event.data.tally,'Difficulty rating');
+      document.querySelector('#hardest-technique')!.textContent='Hardest technique used: '+hardestTechnique(event.data.tally);
+    }
+    if(event.data.error)document.querySelector('#hardest-technique')!.textContent='Hardest technique unavailable.';
     rating.terminate(); ratingWorker=undefined;
   };
-  rating.onerror = () => { if(ratingWorker === rating) {ratingView.textContent='Difficulty calculation failed.';rating.terminate();ratingWorker=undefined;} };
+  rating.onerror = () => { if(ratingWorker === rating) {ratingView.textContent='Difficulty calculation failed.';document.querySelector('#hardest-technique')!.textContent='Hardest technique unavailable.';rating.terminate();ratingWorker=undefined;} };
   rating.postMessage({jigs,size});
 }
 
-function handleVerification(count?: number) {
-  // A cancelled recheck does not invalidate an existing proof for this same puzzle.
-  if (count === undefined && verificationCount === 1) return;
-  const previous = verificationCount;
-  verificationCount = count;
-  if (count === 1) {
-    solverView.setVerifiedUnique(true);
-    if (previous !== 1) startRating();
-    if (requestedStep !== undefined) { solverView.jumpToStep(requestedStep); requestedStep = undefined; }
-  } else {
-    requestedStep = undefined;
-    ratingWorker?.terminate(); ratingWorker = undefined;
-    const message = count === 2 ? 'This puzzle is not unique. Difficulty and walkthrough are unavailable.' : count === 0 ? 'This puzzle has no solution. Difficulty and walkthrough are unavailable.' : 'Uniqueness is unverified. Difficulty and walkthrough are unavailable until a unique solution is confirmed.';
-    document.querySelector('#difficulty-result')!.textContent = message;
-    solverView.setVerifiedUnique(false, message);
-  }
-}
-
-function displayPuzzle(grid: Grid, jigs: Jig[] = createJigs(grid), verifiedUnique=false) {
+function displayPuzzle(grid: Grid, jigs: Jig[], elapsedMs:number) {
   setPuzzleVisible(true);
-  requestedStep = undefined;
   currentJigs = jigs;
-  verificationCount = undefined;
-  ratingWorker?.terminate(); ratingWorker = undefined;
-  document.querySelector('#difficulty-result')!.textContent = 'Waiting for a verified unique solution before calculating difficulty.';
-  solverView.reset(jigs, size);
-  if(verifiedUnique){
-    document.querySelector('#uniqueness-status')!.textContent='Unique solution verified before displaying this puzzle.';
-    handleVerification(1);
-  }else startUniquenessCheck();
+  document.querySelector('#generation-time')!.textContent='Elapsed generation time: '+(elapsedMs/1000).toFixed(3)+' seconds (including attempts, uniqueness checks, and any digging).';
+  document.querySelector('#hardest-technique')!.textContent='Hardest technique used: calculating…';
+  startRating();
   renderBoard(document.querySelector('#solution')!, grid);
   renderBoard(document.querySelector('#jigs')!, grid, jigs);
   candidates = [];
@@ -313,10 +245,8 @@ function displayPuzzle(grid: Grid, jigs: Jig[] = createJigs(grid), verifiedUniqu
 document.querySelector('#grid-type')!.addEventListener('change', () => {
   stopDigging('Construction stopped to change grid type.');
   size = Number(document.querySelector<HTMLSelectElement>('#grid-type')!.value);
-  cancelUniqueness?.();
   notesWorker?.terminate();ratingWorker?.terminate();
   notesWorker=undefined;ratingWorker=undefined;
-  solverView.reset([],size);
   setPuzzleVisible(false);
 });
 async function copyString(value: string, statusId: string) {
