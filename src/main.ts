@@ -1,3 +1,4 @@
+import { createSolverView } from './solver-view';
 import './style.css';
 import { initCustomBuild } from './custom-build';
 import { copyPuzzleImage } from './puzzle-image';
@@ -99,6 +100,12 @@ let generation = 0;
 let puzzleString = '';
 let solutionString = '';
 let showNotes = false;
+let showJigSolution=false;
+let currentSolution:Grid=[];
+const solutionToggle=document.createElement('button');solutionToggle.type='button';solutionToggle.className='notes-toggle';solutionToggle.textContent='Show solution';solutionToggle.setAttribute('aria-pressed','false');solutionToggle.setAttribute('aria-controls','jigs');
+document.querySelector('#toggle-notes')!.after(solutionToggle);
+solutionToggle.addEventListener('click',()=>{showJigSolution=!showJigSolution;updateNotes();});
+const generatedSolver=createSolverView(()=>{}, {prefix:'generate-',slider:true,recheck:false});
 let candidates: number[][] = [];
 let notesWorker: Worker | undefined;
 let notesError = '';
@@ -158,6 +165,7 @@ function updateNotes() {
   document.querySelectorAll<HTMLButtonElement>('#jigs .cell').forEach((cell, index) => {
     cell.replaceChildren();
     const coordinate = `R${Math.floor(index / size) + 1}C${index % size + 1}`;
+    if(showJigSolution){const value=currentSolution[Math.floor(index/size)][index%size];cell.textContent=String(value);cell.setAttribute('aria-label',coordinate+', value: '+value);return;}
     cell.setAttribute('aria-label', showNotes && candidates.length ? `${coordinate}, candidates: ${candidates[index].join(', ')}` : coordinate);
     if (!showNotes || !candidates.length) return;
     const notes = document.createElement('span');
@@ -170,10 +178,12 @@ function updateNotes() {
     }
     cell.append(notes);
   });
-  const toggle = document.querySelector('#toggle-notes')!;
+  solutionToggle.textContent=showJigSolution?'Hide solution':'Show solution';solutionToggle.setAttribute('aria-pressed',String(showJigSolution));
+  const toggle = document.querySelector<HTMLButtonElement>('#toggle-notes')!;
+  toggle.disabled=showJigSolution;
   toggle.textContent = showNotes ? 'Hide local jig notes' : 'Show local jig notes';
   toggle.setAttribute('aria-pressed', String(showNotes));
-  document.querySelector('#notes-status')!.textContent = !showNotes ? '' : notesError || (candidates.length ? 'Notes use local jig comparisons only.' : 'Calculating local jig notes…');
+  document.querySelector('#notes-status')!.textContent = showJigSolution || !showNotes ? '' : notesError || (candidates.length ? 'Notes use local jig comparisons only.' : 'Calculating local jig notes…');
 }
 document.querySelector('#toggle-notes')!.addEventListener('click', () => {
   showNotes = !showNotes;
@@ -191,7 +201,7 @@ function startRating() {
     if (ratingWorker !== rating) return;
     if (event.data.error) ratingView.textContent = 'Difficulty unavailable: ' + event.data.error;
     else {
-      renderRating(ratingView,event.data.score,event.data.tally,'Difficulty rating');
+      renderRating(ratingView,event.data.score,event.data.tally,'Difficulty rating',step=>generatedSolver.jumpToStep(step));
       document.querySelector('#hardest-technique')!.textContent='Hardest technique used: '+hardestTechnique(event.data.tally);
     }
     if(event.data.error)document.querySelector('#hardest-technique')!.textContent='Hardest technique unavailable.';
@@ -203,7 +213,8 @@ function startRating() {
 
 function displayPuzzle(grid: Grid, jigs: Jig[], elapsedMs:number) {
   setPuzzleVisible(true);
-  currentJigs = jigs;
+  currentJigs = jigs;currentSolution=grid;showJigSolution=false;
+  generatedSolver.reset(jigs,size);generatedSolver.setVerifiedUnique(true);generatedSolver.prepare();
   document.querySelector('#generation-time')!.textContent='Elapsed generation time: '+(elapsedMs/1000).toFixed(3)+' seconds (including attempts, uniqueness checks, and any digging).';
   document.querySelector('#hardest-technique')!.textContent='Hardest technique used: calculating…';
   startRating();
@@ -247,6 +258,7 @@ document.querySelector('#grid-type')!.addEventListener('change', () => {
   size = Number(document.querySelector<HTMLSelectElement>('#grid-type')!.value);
   notesWorker?.terminate();ratingWorker?.terminate();
   notesWorker=undefined;ratingWorker=undefined;
+  generatedSolver.reset([],size);
   setPuzzleVisible(false);
 });
 async function copyString(value: string, statusId: string) {

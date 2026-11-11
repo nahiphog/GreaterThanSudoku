@@ -4,17 +4,22 @@ import { createBacktrackingCheck } from './backtracking-check-view';
 import type { Jig } from './sudoku';
 import type { SolveFrame } from './logical-solver';
 
-export function createSolverView(onVerified: (count:number)=>void = () => {}, options: {host?: HTMLElement; prefix?: string} = {}) {
+export function createSolverView(onVerified: (count:number)=>void = () => {}, options: {host?: HTMLElement; prefix?: string; slider?: boolean; recheck?: boolean} = {}) {
   const prefix = options.prefix ?? '';
   const section = document.createElement('section');
   section.className = 'solver-section';
   section.innerHTML = `<div class="solver-heading"><div><p class="eyebrow">FOLLOW THE DEDUCTIONS</p><h2>Step-by-step solver</h2></div><button id="solve-steps" type="button">Solve step by step</button></div>
     <p id="solver-status" role="status" aria-live="polite">Start from the local jig notes and follow the logical techniques.</p>
     <div id="solver-content" data-solver-content hidden><div class="solver-layout"><div id="solver-board" class="board" role="img"></div><div class="step-detail"><div class="step-navigation"><button id="step-prev" type="button">Previous</button><label>Step <select id="step-select" aria-label="Solving step"></select></label><button id="step-next" type="button">Next</button></div><h3 id="step-title"></h3><p id="step-description"></p><p id="step-placements"></p><p id="step-eliminations"></p><p id="step-pattern"></p><p class="step-key">Red crossed-out notes are removed in this step and disappear in the next. Blue marks the pattern, amber its support, and purple exceptions. Dark/light purple or orange marks alternating colour groups. Green marks placements; red marks eliminations. Placed numbers appear immediately at full size.</p></div></div></div>`;
+  if(options.slider){
+    section.querySelector('.eyebrow')!.remove();
+    section.querySelector('h2')!.textContent='Solution walkthrough';
+    section.querySelector('.step-navigation')!.insertAdjacentHTML('afterend','<label class="walkthrough-slider">Solution step <input id="step-slider" type="range" min="0" max="0" step="1" value="0" disabled><output id="step-position">0 / 0</output></label>');
+  }
   section.querySelector('.board')!.classList.add('walkthrough-board');
   section.querySelectorAll<HTMLElement>('[id]').forEach(el => { el.id = prefix + el.id; });
   if (options.host) options.host.append(section); else document.querySelector('#home-page > .bottom-line')!.before(section);
-  const backtrackingCheck = createBacktrackingCheck(section, onVerified, prefix);
+  const backtrackingCheck = options.recheck===false?undefined:createBacktrackingCheck(section, onVerified, prefix);
   const get = <T extends HTMLElement>(id: string) => section.querySelector<T>(`#${prefix}${id}`)!;
   let worker: Worker | undefined;
   let frames: SolveFrame[] = [];
@@ -78,6 +83,11 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
     get('step-placements').textContent = frame.placements.length ? `Place: ${frame.placements.map(p => `${coordinate(p.cell)} = ${p.digit}`).join('; ')}.` : '';
     get('step-eliminations').textContent = frame.eliminations.length ? `Remove: ${frame.eliminations.map(p => `${p.digit} from ${coordinate(p.cell)}`).join('; ')}.` : '';
     get<HTMLSelectElement>('step-select').value = String(index);
+    if(options.slider){
+      const slider=get<HTMLInputElement>('step-slider');slider.max=String(frames.length-1);slider.value=String(index);slider.disabled=frames.length<2;
+      slider.setAttribute('aria-valuetext', 'Step '+index+' of '+(frames.length-1)+': '+frame.title);
+      get('step-position').textContent=index+' / '+(frames.length-1);
+    }
     get<HTMLButtonElement>('step-prev').disabled = index === 0;
     get<HTMLButtonElement>('step-next').disabled = index === frames.length - 1;
   }
@@ -120,6 +130,7 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
   }
   get('step-prev').addEventListener('click', () => { requestedIndex = undefined; if (index > 0) { index--; render(); } });
   get('step-next').addEventListener('click', () => { requestedIndex = undefined; if (index < frames.length - 1) { index++; render(); } });
+  if(options.slider)get('step-slider').addEventListener('input',()=>{requestedIndex=undefined;index=Number(get<HTMLInputElement>('step-slider').value);render();});
   get('step-select').addEventListener('change', () => { requestedIndex = undefined; index = Number(get<HTMLSelectElement>('step-select').value); render(); });
   function setVerifiedUnique(verified: boolean, message = 'Waiting for a verified unique solution before showing the walkthrough.') {
     verifiedUnique = verified;
@@ -128,5 +139,5 @@ export function createSolverView(onVerified: (count:number)=>void = () => {}, op
     get('solver-status').textContent = verified ? 'Unique solution verified. Start the walkthrough from local jig notes.' : message;
   }
   setVerifiedUnique(false);
-  return { jumpToStep, setVerifiedUnique, reset(next: Jig[], nextSize = 9) { stop(); setVerifiedUnique(false); backtrackingCheck.reset(next, nextSize); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Waiting for a verified unique solution before showing the walkthrough.'; } };
+  return { prepare:()=>startSolving(), jumpToStep, setVerifiedUnique, reset(next: Jig[], nextSize = 9) { stop(); setVerifiedUnique(false); backtrackingCheck?.reset(next, nextSize); size = nextSize; get("solver-board").dataset.size = String(size); jigs = next; frames = []; index = 0; get('solver-content').hidden = true; get('solver-status').textContent = 'Waiting for a verified unique solution before showing the walkthrough.'; } };
 }
