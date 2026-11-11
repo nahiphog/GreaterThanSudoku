@@ -17,7 +17,7 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
   <label>${isJigs?'Display puzzles with at most X jigs':'Display puzzles rated at least'}<select name="threshold">${(isJigs?Array.from({length:108},(_,i)=>i+1):[0,500,1000,2000,3000,10000,10000000]).map(n=>`<option value="${n}" ${isJigs&&n===108?'selected':''}>${n.toLocaleString()}</option>`).join('')}</select></label>
   <label class="simulation-dig"><input type="checkbox" name="dig" ${isJigs?'checked disabled':''}> Dig out jigs while preserving uniqueness</label>
   <label>Digging method<select name="method" ${isJigs?'':'disabled'}><option value="single">Single jig</option><option value="rotational">Rotational pairs (180°)</option></select></label>
-  <button type="submit">Start simulation</button><button id="simulation-stop" type="button" disabled>Stop</button></form>
+  <button type="submit">Start simulation</button></form>
 
   <p id="simulation-status" role="status">Ready.</p><section id="simulation-histogram" class="jig-histogram"></section><div class="simulation-controls"><button id="simulation-prev">Previous matches</button><span id="simulation-page-count"></span><button id="simulation-next">Next matches</button></div><div id="simulation-results"></div>`;
   main.querySelectorAll<HTMLElement>('[id]').forEach(el=>el.id=el.id.replace('simulation',prefix));
@@ -64,13 +64,13 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
       results.append(card);
     }
   }
-  function stop(message:string){if(worker){worker.terminate();worker=undefined;elapsed=performance.now()-started}window.clearInterval(timer);outcome=message;get<HTMLButtonElement>('simulation-stop').disabled=true;form.querySelectorAll<HTMLSelectElement|HTMLInputElement>('select,input').forEach(e=>e.disabled=(isJigs && e.name==='dig') || (e.name==='method' && !digCheckbox.checked));form.querySelector<HTMLButtonElement>('[type=submit]')!.disabled=false;status();}
+  function stop(message:string){if(worker){worker.terminate();worker=undefined;elapsed=performance.now()-started}window.clearInterval(timer);outcome=message;form.querySelectorAll<HTMLSelectElement|HTMLInputElement>('select,input').forEach(e=>e.disabled=(isJigs && e.name==='dig') || (e.name==='method' && !digCheckbox.checked));form.querySelector<HTMLButtonElement>('[type=submit]')!.textContent='Start simulation';status();}
   form.addEventListener('submit',event=>{
-    event.preventDefault();stop('');if(database) indexedDB.deleteDatabase(database);database='greater-than-sudoku-simulation-'+Date.now()+'-'+Math.random().toString(36).slice(2);const data=new FormData(form);total=Number(data.get('trials'));size=Number(data.get('size'));const threshold=Number(data.get('threshold'));dig=isJigs || data.has('dig');const method=methodSelect.value;
+    event.preventDefault();if(worker){stop('Stopped. Partial results retained.');return;}stop('');if(database) indexedDB.deleteDatabase(database);database='greater-than-sudoku-simulation-'+Date.now()+'-'+Math.random().toString(36).slice(2);const data=new FormData(form);total=Number(data.get('trials'));size=Number(data.get('size'));const threshold=Number(data.get('threshold'));dig=isJigs || data.has('dig');const method=methodSelect.value;
     if(isJigs)renderJigHistogram(get('simulation-histogram'),createJigHistogram(size));
   else renderDifficultyHistogram(get('simulation-histogram'),createDifficultyHistogram());
     matchCount=0;completed=0;unique=0;skipped=0;sum=0;min=0;max=0;elapsed=0;page=0;outcome='Running.';started=performance.now();render();status();
-    form.querySelectorAll<HTMLSelectElement|HTMLInputElement>('select,input').forEach(e=>e.disabled=true);form.querySelector<HTMLButtonElement>('[type=submit]')!.disabled=true;get<HTMLButtonElement>('simulation-stop').disabled=false;
+    form.querySelectorAll<HTMLSelectElement|HTMLInputElement>('select,input').forEach(e=>e.disabled=true);form.querySelector<HTMLButtonElement>('[type=submit]')!.textContent='Stop';
     const active=new Worker(new URL('./simulation.worker.ts',import.meta.url),{type:'module'});worker=active;
     timer=window.setInterval(()=>{elapsed=performance.now()-started;status()},1000);
     active.onmessage=(event:MessageEvent<{difficultyHistogram?:DifficultyHistogram;jigHistogram?:number[];completed:number;unique:number;skipped:number;sum:number;min:number;max:number;matchCount:number;done?:boolean;error?:string}>)=>{
@@ -85,6 +85,5 @@ export function initSimulation(onStep: (grid: number[][], step: number, string:s
     active.onerror=()=>{if(worker===active)stop('Simulation failed. Partial results retained.')};active.postMessage({trials:total,size,threshold,database,mode,dig,method});
   });
   window.addEventListener('pagehide',()=>{worker?.terminate();if(database)indexedDB.deleteDatabase(database)});
-  get('simulation-stop').addEventListener('click',()=>stop('Stopped. Partial results retained.'));
   get('simulation-prev').addEventListener('click',()=>{page--;render()});get('simulation-next').addEventListener('click',()=>{page++;render()});render();
 }
