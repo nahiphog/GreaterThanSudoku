@@ -9,7 +9,7 @@ export function initVerify() {
   main.innerHTML=`<h1>Verify</h1><form id="verify-form"><label for="verify-input">Puzzle string</label><textarea id="verify-input" rows="5" spellcheck="false" required aria-describedby="verify-help"></textarea><p id="verify-help">Paste 144 characters for 9×9 or 60 for 6×6. Horizontal comparisons come first, then vertical comparisons. Use 0 for missing jigs. Whitespace is ignored, and ^ is accepted as ∧.</p><div class="verify-actions"><button id="verify-toggle" type="submit">Verify</button></div></form><p id="verify-status" role="status">Enter a puzzle string to check its uniqueness.</p><div id="verify-results" hidden><div class="puzzles"><section class="puzzle-card"><h2>Jig puzzle</h2><div id="verify-puzzle"></div></section><section class="puzzle-card"><h2>Completed Sudoku</h2><div id="verify-solution"></div></section></div><section class="rating-panel"><div id="verify-rating"></div></section></div><div id="verify-walkthrough"></div>`;
   document.querySelector('footer')!.before(main);
   const get=<T extends HTMLElement>(id:string)=>main.querySelector<T>('#'+id)!;
-  const solver=createSolverView(()=>{}, {host:get('verify-walkthrough'),prefix:'verify-'});
+  const solver=createSolverView(()=>{}, {host:get('verify-walkthrough'),prefix:'verify-',slider:true});
   get('verify-walkthrough').hidden=true;
   let requestedStep:number|undefined;
   let worker:Worker|undefined,startedAt=0,verified=false,inputRevision=0;
@@ -55,7 +55,7 @@ export function initVerify() {
         get('verify-results').hidden=false;get('verify-walkthrough').hidden=false;
         get('verify-puzzle').append(puzzleBoard(puzzle.jigs,puzzle.size));
         get('verify-solution').append(puzzleBoard([],puzzle.size,data.solution));
-        get('verify-rating').textContent='Calculating difficulty…';solver.setVerifiedUnique(true);
+        get('verify-rating').textContent='Calculating difficulty…';solver.setVerifiedUnique(true);solver.prepare();
       } else if(data.type==='rating') {
         renderRating(get('verify-rating'),data.score,data.tally,'Difficulty rating',step=>solver.jumpToStep(step));if(requestedStep!==undefined){solver.jumpToStep(requestedStep);requestedStep=undefined;}stop();
       } else {
