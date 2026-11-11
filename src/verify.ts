@@ -6,7 +6,7 @@ import type { Tally } from './difficulty';
 
 export function initVerify() {
   const main=document.createElement('main');main.id='verify-page';main.hidden=true;
-  main.innerHTML=`<h1>Verify</h1><form id="verify-form"><label for="verify-input">Puzzle string</label><textarea id="verify-input" rows="5" spellcheck="false" required aria-describedby="verify-help"></textarea><p id="verify-help">Paste 144 characters for 9×9 or 60 for 6×6. Horizontal comparisons come first, then vertical comparisons. Use 0 for missing jigs. Whitespace is ignored, and ^ is accepted as ∧.</p><div class="verify-actions"><button id="verify-toggle" type="submit">Verify</button></div></form><p id="verify-status" role="status">Enter a puzzle string to check its uniqueness.</p><div id="verify-results" hidden><div class="puzzles"><section class="puzzle-card"><h2>Jig puzzle</h2><div id="verify-puzzle"></div></section><section class="puzzle-card"><h2>Completed Sudoku</h2><div id="verify-solution"></div></section></div><section class="rating-panel"><div id="verify-rating"></div></section></div><div id="verify-walkthrough"></div>`;
+  main.innerHTML=`<h1>Verify</h1><form id="verify-form"><label for="verify-input">Puzzle string</label><textarea id="verify-input" rows="5" spellcheck="false" required aria-describedby="verify-help"></textarea><p id="verify-help">Paste 144 characters for 9×9 or 60 for 6×6. Horizontal comparisons come first, then vertical comparisons. Use 0 for missing jigs. Whitespace is ignored, and ^ is accepted as ∧.</p><div class="verify-actions"><button id="verify-toggle" type="submit">Verify</button></div></form><p id="verify-status" role="status">Enter a puzzle string to check its uniqueness.</p><div id="verify-results" hidden><div class="puzzles"><section class="puzzle-card"><h2>Jig puzzle</h2><div id="verify-puzzle"></div><button id="verify-reveal-solution" type="button" class="notes-toggle" aria-pressed="false" aria-controls="verify-puzzle">Show solution</button></section><section class="puzzle-card"><h2>Completed Sudoku</h2><div id="verify-solution"></div></section></div><section class="rating-panel"><div id="verify-rating"></div></section></div><div id="verify-walkthrough"></div>`;
   document.querySelector('footer')!.before(main);
   const get=<T extends HTMLElement>(id:string)=>main.querySelector<T>('#'+id)!;
   const solver=createSolverView(()=>{}, {host:get('verify-walkthrough'),prefix:'verify-',slider:true});
@@ -15,7 +15,7 @@ export function initVerify() {
   let worker:Worker|undefined,startedAt=0,verified=false,inputRevision=0;
   const elapsed=()=>`Elapsed time: ${((performance.now()-startedAt)/1000).toFixed(3)} seconds.`;
   function stop(){worker?.terminate();worker=undefined;get<HTMLButtonElement>('verify-toggle').textContent='Verify';}
-  function clear(){requestedStep=undefined;stop();verified=false;get('verify-results').hidden=true;get('verify-walkthrough').hidden=true;solver.reset([],9);get('verify-rating').replaceChildren();get('verify-solution').replaceChildren();get('verify-puzzle').replaceChildren();}
+  function clear(){requestedStep=undefined;stop();verified=false;get<HTMLButtonElement>('verify-reveal-solution').onclick=null;get('verify-reveal-solution').textContent='Show solution';get('verify-reveal-solution').setAttribute('aria-pressed','false');get('verify-results').hidden=true;get('verify-walkthrough').hidden=true;solver.reset([],9);get('verify-rating').replaceChildren();get('verify-solution').replaceChildren();get('verify-puzzle').replaceChildren();}
   const input=get<HTMLTextAreaElement>('verify-input');
   function inputChanged(){inputRevision++;clear();get('verify-status').textContent=input.value?'Input changed. Select Verify to check this puzzle.':'Enter a puzzle string to check its uniqueness.';}
   input.addEventListener('input',inputChanged);
@@ -53,7 +53,15 @@ export function initVerify() {
         get('verify-status').textContent=(verified?'Unique solution — exactly one valid completion.':data.count===0?'No solution. Difficulty and walkthrough are unavailable.':'Not unique — at least two valid completions. Difficulty and walkthrough are unavailable.')+' '+method+' '+elapsed();
         if(!verified){stop();return;}
         get('verify-results').hidden=false;get('verify-walkthrough').hidden=false;
-        get('verify-puzzle').append(puzzleBoard(puzzle.jigs,puzzle.size));
+        let showSolution=false;
+        const reveal=get<HTMLButtonElement>('verify-reveal-solution');
+        const renderPuzzle=()=>{
+          get('verify-puzzle').replaceChildren(puzzleBoard(puzzle.jigs,puzzle.size,showSolution?data.solution:undefined));
+          reveal.textContent=showSolution?'Hide solution':'Show solution';
+          reveal.setAttribute('aria-pressed',String(showSolution));
+        };
+        reveal.onclick=()=>{showSolution=!showSolution;renderPuzzle();};
+        renderPuzzle();
         get('verify-solution').append(puzzleBoard([],puzzle.size,data.solution));
         get('verify-rating').textContent='Calculating difficulty…';solver.setVerifiedUnique(true);solver.prepare();
       } else if(data.type==='rating') {

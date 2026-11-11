@@ -12,7 +12,7 @@ export type SolveFrame = {
   kind: 'initial' | 'logic' | 'backtracking';
 };
 // Classic uniqueness deductions can change inequalities when swapping digits.
-export const DISABLED_TECHNIQUES = new Set(['MEDUSA_3D', 'FINNED_JELLYFISH', 'GROUPED_NICE_LOOP', 'ALIGNED_PAIR_EXCLUSION', 'ALS_XY_CHAIN', 'DIGIT_FORCING_CHAIN', 'NISHIO_FORCING_CHAIN', 'SASHIMI_SWORDFISH', 'AIC', 'PATTERN_OVERLAY', 'CELL_FORCING_CHAIN', 'FINNED_X_WING', 'XY_CHAIN', 'ALS_XZ', 'AIC_ALS', 'UNIT_FORCING_CHAIN', 'CHUTE_REMOTE_PAIR', 'FORCING_NET']);
+export const DISABLED_TECHNIQUES = new Set(['MEDUSA_3D', 'FINNED_JELLYFISH', 'GROUPED_NICE_LOOP', 'ALIGNED_PAIR_EXCLUSION', 'ALS_XY_CHAIN', 'DIGIT_FORCING_CHAIN', 'NISHIO_FORCING_CHAIN', 'SASHIMI_SWORDFISH', 'AIC', 'PATTERN_OVERLAY', 'CELL_FORCING_CHAIN', 'FINNED_X_WING', 'XY_CHAIN', 'ALS_XZ', 'AIC_ALS', 'UNIT_FORCING_CHAIN', 'CHUTE_REMOTE_PAIR', 'FORCING_NET', 'ALS_XY_WING']);
 export const LOGIC_ORDER = SOLVE_ORDER.filter(t => !DISABLED_TECHNIQUES.has(t) && TECHS[t].category !== 'Uniqueness' && t !== 'BRUTE_FORCE');
 /** Imported grouped finders can return a different technique than requested. */
 export function nextEnabledStep<T extends {tech:Tech}>(order:Tech[],finder:(tech:Tech)=>T|null):T|null {

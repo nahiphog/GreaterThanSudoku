@@ -39,8 +39,8 @@ test('backtracking tally points to its walkthrough frame while preserving per-gu
   assert.equal(rating.score,rating.tally.reduce((sum,t)=>sum+t.count*t.score,0));
   assert.equal(item.score,10000);
 });
-test('all eighteen requested techniques are excluded from both active logical orders',()=>{
-  assert.deepEqual([...DISABLED_TECHNIQUES].map(key=>TECHS[key as keyof typeof TECHS].name).sort(),['3D Medusa','Finned Jellyfish','Grouped Nice Loop','Aligned Pair Exclusion','ALS-XY-Chain','Digit Forcing Chain','Nishio Forcing Chain','Sashimi Swordfish','Alternating Inference Chain','Pattern Overlay','Cell Forcing Chain','Finned X-Wing','XY-Chain','ALS-XZ','AIC with ALSs','Unit Forcing Chain','Chute Remote Pair','Forcing Net'].sort());
+test('all nineteen requested techniques are excluded from both active logical orders',()=>{
+  assert.deepEqual([...DISABLED_TECHNIQUES].map(key=>TECHS[key as keyof typeof TECHS].name).sort(),['3D Medusa','Finned Jellyfish','Grouped Nice Loop','Aligned Pair Exclusion','ALS-XY-Chain','Digit Forcing Chain','Nishio Forcing Chain','Sashimi Swordfish','Alternating Inference Chain','Pattern Overlay','Cell Forcing Chain','Finned X-Wing','XY-Chain','ALS-XZ','AIC with ALSs','Unit Forcing Chain','Chute Remote Pair','Forcing Net','ALS-XY-Wing'].sort());
   assert.ok(LOGIC_ORDER.every(key=>!DISABLED_TECHNIQUES.has(key)));
   assert.ok(SIX_LOGIC_ORDER.every(key=>!DISABLED_TECHNIQUES.has(key)));
 });
