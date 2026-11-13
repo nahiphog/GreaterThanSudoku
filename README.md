@@ -155,3 +155,7 @@ Generate, Simulation difficulty, and Simulation jigs offer Single jig or Rotatio
 Generate checks candidate puzzles in a background worker and retries automatically until exactly one solution is verified, whether digging is enabled or not. Rejected candidates are never displayed. Attempts and elapsed time remain visible, and Stop cancels the search without publishing an unverified puzzle.
 
 Generate displays the verified puzzle's difficulty, hardest technique (highest per-use score, including ties), and elapsed generation time covering all attempts, uniqueness checks, and digging. Rating computation runs separately. Generate has no uniqueness recheck. Its Solution walkthrough is prepared automatically with a slider, previous/next controls, and candidate eliminations shown crossed out for their deduction step. Show solution reveals the completed values directly on the jig grid; Hide solution restores the previous notes display. Simulation step links open the Verify walkthrough.
+
+## Phistomefel Ring
+
+On 9×9 grids, the sixteen-cell ring from R3C3 to R7C7 has the same digit multiset as the four 2×2 corners. The solver compares forced and possible counts for each digit, removing excess occurrences or requiring every remaining location when necessary. Each productive per-digit deduction is one step worth **200 points**. Ring and corner evidence is highlighted in the walkthrough, with eliminations crossed out. This local rule is shared by uniqueness checks, ratings, generation, verification, custom builds and simulations; it does not apply to 6×6.

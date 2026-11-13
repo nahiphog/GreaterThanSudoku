@@ -31,7 +31,7 @@ export function checkUniqueness(jigs: Jig[], progress: (message: string) => void
     const result = solveWithSteps(jigs, next => { frame = next; }, progress, false);
     logicSteps = result.logicSteps;
   } catch (error) {
-    if (error instanceof Error && ['The jigs contain a contradictory cycle.', 'The local notes contradict the puzzle rules.'].includes(error.message)) {
+    if (error instanceof Error && ['The jigs contain a contradictory cycle.', 'The local notes contradict the puzzle rules.', 'Phistomefel Ring counts contradict the puzzle rules.'].includes(error.message)) {
       return { count: 0, solutions: [], logicSteps, usedBacktracking: false };
     }
     throw error;

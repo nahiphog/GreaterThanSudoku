@@ -1,3 +1,4 @@
+import { PHISTOMEFEL_NAME, PHISTOMEFEL_SCORE } from './phistomefel';
 import { checkUniqueness } from './uniqueness';
 import { solveWithSteps, type SolveFrame } from './logical-solver';
 import { solveSix } from './six-solver';
@@ -7,6 +8,9 @@ export type Tally = { name: string; count: number; score: number; steps: number[
 export function solvePuzzle(jigs: Jig[], size: number, emit: (frame: SolveFrame)=>void, progress: (message:string)=>void=()=>{}, allowBacktracking=true) {
   return size===6 ? solveSix(jigs,emit,allowBacktracking) : solveWithSteps(jigs,emit,progress,allowBacktracking);
 }
+export function techniqueScore(name:string) {
+  return name===PHISTOMEFEL_NAME ? PHISTOMEFEL_SCORE : (Object.values(TECHS).find(t=>t.name===name)?.score ?? 0);
+}
 export function ratePuzzle(jigs: Jig[], size: number) {
   const tally: Tally[]=[];
   let step = 0;
@@ -15,7 +19,7 @@ export function ratePuzzle(jigs: Jig[], size: number) {
     if(frame.kind!=='initial') step++;
     if(frame.kind==='backtracking') backtrackingSteps.push(step);
     if(frame.kind!=='logic') return;
-    const score=Object.values(TECHS).find(t=>t.name===frame.title)?.score ?? 0;
+    const score=techniqueScore(frame.title);
     const item=tally.find(t=>t.name===frame.title);
     if(item) { item.count++; item.steps.push(step); } else tally.push({name:frame.title,count:1,score,steps:[step]});
   });

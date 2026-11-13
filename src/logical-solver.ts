@@ -1,3 +1,4 @@
+import { findPhistomefel, PHISTOMEFEL_NAME, PHISTOMEFEL_SCORE } from './phistomefel';
 import { techniqueHighlights, jigHighlights, type HighlightGroup } from './step-highlights';
 import { jigCandidates } from './candidates';
 import type { Jig } from './sudoku';
@@ -84,7 +85,17 @@ export function solveWithSteps(jigs: Jig[], emit: (frame: SolveFrame) => void, p
       record('Jig comparison', jig.description, 'logic', before, undefined, jig.highlights);
     } else {
       progress('Trying sudokUI logical techniques…');
-      const step = nextEnabledStep(LOGIC_ORDER,tech=>findStep(tech,state));
+      const cheap = nextEnabledStep(LOGIC_ORDER.filter(t=>TECHS[t].score<PHISTOMEFEL_SCORE),tech=>findStep(tech,state));
+      const ring = cheap ? null : findPhistomefel(state);
+      if(ring) {
+        for(const e of ring.eliminations)state.cands[e.cell]&=~bit(e.digit);
+        if(!valid(state))throw new Error('A Phistomefel Ring deduction produced a contradiction.');
+        record(PHISTOMEFEL_NAME,ring.description,'logic',before,undefined,ring.highlights);
+        logicSteps++;
+        if(logicSteps>810)throw new Error('Logical step limit exceeded.');
+        continue;
+      }
+      const step = cheap ?? nextEnabledStep(LOGIC_ORDER.filter(t=>TECHS[t].score>=PHISTOMEFEL_SCORE),tech=>findStep(tech,state));
       if (!step) break;
       applyStep(state, step);
       if (!valid(state)) throw new Error(`The ${TECHS[step.tech].name} step produced a contradiction.`);
